@@ -1,0 +1,51 @@
+plugins {
+    id 'com.android.application'
+    id 'org.jetbrains.kotlin.plugin.compose'
+}
+android {
+    namespace 'io.github.zopulus.coogle'
+    compileSdk { version = release(37) }
+    buildToolsVersion '36.0.0'
+    defaultConfig {
+        applicationId 'io.github.zopulus.coogle'
+        minSdk 35
+        targetSdk 36
+        versionCode 100
+        versionName '1.0'
+        ndk { abiFilters 'arm64-v8a' }
+    }
+    buildTypes {
+        release { signingConfig signingConfigs.debug; minifyEnabled true; shrinkResources true; proguardFiles getDefaultProguardFile('proguard-android-optimize.txt'), 'proguard-rules.pro' }
+    }
+    compileOptions { sourceCompatibility JavaVersion.VERSION_17; targetCompatibility JavaVersion.VERSION_17 }
+    buildFeatures { compose true; buildConfig true }
+    packaging { resources { excludes += ['META-INF/LICENSE*','META-INF/NOTICE*','META-INF/AL2.0','META-INF/LGPL2.1'] } }
+}
+dependencies {
+    compileOnly 'io.github.libxposed:api:102.0.0'
+    implementation 'io.github.libxposed:service:102.0.0'
+    implementation 'io.github.libxposed:interface:102.0.0'
+    implementation platform('androidx.compose:compose-bom:2026.09.00')
+    implementation 'androidx.activity:activity-compose:1.12.3'
+    implementation 'androidx.compose.ui:ui'
+    implementation 'androidx.compose.material3:material3:1.5.0-alpha28'
+    implementation 'androidx.compose.material:material-icons-extended:1.7.8'
+    implementation 'androidx.core:core-ktx:1.17.0'
+}
+
+// Test the production UID lookup with a minimal JVM Android boundary.
+def hotwordTestClasses = layout.buildDirectory.dir('hotword-tests')
+tasks.register('compileHotwordUidTest', JavaCompile) {
+    source files('../tests/HotwordUidTest.java') + fileTree('../tests/hotword-stubs') { include '**/*.java' }
+    classpath = files()
+    destinationDirectory = hotwordTestClasses
+    sourceCompatibility = '17'
+    targetCompatibility = '17'
+    options.encoding = 'UTF-8'
+}
+tasks.register('testHotwordUid', JavaExec) {
+    dependsOn 'compileReleaseKotlin', 'compileHotwordUidTest'
+    classpath = files(hotwordTestClasses, layout.buildDirectory.dir('intermediates/built_in_kotlinc/release/compileReleaseKotlin/classes')) +
+        files({ configurations.releaseRuntimeClasspath.findAll { it.name.startsWith('kotlin-stdlib-') && it.name.endsWith('.jar') } })
+    mainClass = 'io.github.zopulus.coogle.HotwordUidTest'
+}
