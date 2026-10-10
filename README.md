@@ -19,8 +19,8 @@
 
 ## 使用说明
 
-1. 安装 `Coogle-1.0.apk`，在 LSPosed 中启用模块并勾选推荐作用域。
-2. 使用 Hey Google 需安装 `Coogle-Companion-1.0.zip`，通过 KernelSU 安装后重启设备。
+1. 安装 `Coogle-1.1.apk`，在 LSPosed 中启用模块并勾选推荐作用域。
+2. 使用 Hey Google 需安装 `Coogle-Companion-1.1.zip`，通过 KernelSU 安装后重启设备。
 3. 在 Google 中开启 Hey Google，并完成 Voice Match。
 4. 更改功能开关后重启对应作用域；涉及系统框架时需重启设备。
 

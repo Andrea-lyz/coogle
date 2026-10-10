@@ -10,8 +10,8 @@ android {
         applicationId 'io.github.zopulus.coogle'
         minSdk 35
         targetSdk 36
-        versionCode 100
-        versionName '1.0'
+        versionCode 110
+        versionName '1.1'
         ndk { abiFilters 'arm64-v8a' }
     }
     buildTypes {
@@ -50,4 +50,26 @@ tasks.register('testHotwordUid', JavaExec) {
         files({ zipTree(configurations.releaseCompileClasspath.find { it.name == 'api-102.0.0.aar' })
             .matching { include 'classes.jar' }.singleFile })
     mainClass = 'io.github.zopulus.coogle.HotwordUidTest'
+}
+
+// Exercise production wallpaper callbacks without an Android device or Xposed runtime.
+def wallpaperTestClasses = layout.buildDirectory.dir('wallpaper-tests')
+tasks.register('compileWallpaperTest', JavaCompile) {
+    dependsOn 'compileReleaseKotlin'
+    source files('../tests/WallpaperQuickEntryTest.java') + fileTree('../tests/wallpaper-stubs') { include '**/*.java' }
+    classpath = files(layout.buildDirectory.dir('intermediates/built_in_kotlinc/release/compileReleaseKotlin/classes')) +
+        files({ zipTree(configurations.releaseCompileClasspath.find { it.name == 'api-102.0.0.aar' })
+            .matching { include 'classes.jar' }.singleFile })
+    destinationDirectory = wallpaperTestClasses
+    sourceCompatibility = '17'
+    targetCompatibility = '17'
+    options.encoding = 'UTF-8'
+}
+tasks.register('testWallpaper', JavaExec) {
+    dependsOn 'compileWallpaperTest'
+    classpath = files(wallpaperTestClasses, layout.buildDirectory.dir('intermediates/built_in_kotlinc/release/compileReleaseKotlin/classes')) +
+        files({ configurations.releaseRuntimeClasspath.findAll { it.name.startsWith('kotlin-stdlib-') && it.name.endsWith('.jar') } }) +
+        files({ zipTree(configurations.releaseCompileClasspath.find { it.name == 'api-102.0.0.aar' })
+            .matching { include 'classes.jar' }.singleFile })
+    mainClass = 'io.github.zopulus.coogle.WallpaperQuickEntryTest'
 }

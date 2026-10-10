@@ -31,6 +31,8 @@ public final class CoogleModule extends XposedModule {
         if ("com.android.settings".equals(packageName)) SettingsHooks.installGoogleSettingsEntry(hooks, param.getClassLoader());
         if ("com.android.systemui".equals(packageName) || "com.android.settings".equals(packageName)
                 || "com.android.launcher".equals(packageName)
+                || "com.oplus.wallpapers".equals(packageName)
+                || "com.google.android.apps.walletnfcrel".equals(packageName)
                 || "com.google.android.googlequicksearchbox".equals(packageName)) {
             MigrationEntry.attach(this);
             MigrationEntry.hookPackage(packageName, param.getClassLoader());

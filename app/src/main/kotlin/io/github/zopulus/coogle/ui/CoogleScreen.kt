@@ -27,6 +27,8 @@ import androidx.compose.material.icons.rounded.HighlightOff
 import androidx.compose.material.icons.rounded.Close
 import androidx.compose.material.icons.rounded.Extension
 import androidx.compose.material.icons.rounded.Info
+import androidx.compose.material.icons.rounded.AccountBalanceWallet
+import androidx.compose.material.icons.rounded.DashboardCustomize
 import androidx.compose.material.icons.rounded.LockOpen
 import androidx.compose.material.icons.rounded.Mic
 import androidx.compose.material.icons.rounded.RecordVoiceOver
@@ -133,29 +135,33 @@ fun CoogleScreen(
                     }
                 )
             }
-            val available = state.connected && !state.busy
+            val available = state.connected
             Group("数字助理") {
                 SettingRow(0, 3, Icons.Rounded.RecordVoiceOver, "默认数字助理", state.assistant, onClick = onAssistant)
                 ToggleRow(1, 3, Icons.Rounded.Mic, "开启 Hey Google", state.companion.summary,
-                    checked = state.features[FeaturePolicy.HEY_GOOGLE] == true, enabled = available,
+                    checked = state.features[FeaturePolicy.HEY_GOOGLE] == true, enabled = available && !state.busy,
                     onChange = { onSetting(FeaturePolicy.HEY_GOOGLE, it) },
                     progress = state.companion in setOf(CompanionState.CHECKING, CompanionState.INSTALLING))
                 ToggleRow(2, 3, Icons.Rounded.CenterFocusStrong, "Google智能镜头", "补全Google智能镜头功能",
                     state.features[FeaturePolicy.LENS] == true, available, { onSetting(FeaturePolicy.LENS, it) })
             }
             Group("系统设置") {
-                ToggleRow(0, 4, Icons.Rounded.TouchApp, "系统导航方式", "补全设置中的导航方式",
+                ToggleRow(0, 6, Icons.Rounded.TouchApp, "系统导航方式", "补全设置中的导航方式",
                     state.features[FeaturePolicy.NAVIGATION] == true, available, { onSetting(FeaturePolicy.NAVIGATION, it) })
-                ToggleRow(1, 4, Icons.Rounded.Search, "Google搜索框", "在桌面底部显示 Google 搜索框",
+                ToggleRow(1, 6, Icons.Rounded.Search, "Google搜索框", "在桌面底部显示 Google 搜索框",
                     state.features[FeaturePolicy.SEARCH_BAR] == true, available, { onSetting(FeaturePolicy.SEARCH_BAR, it) })
-                ToggleRow(2, 4, Icons.Rounded.LockOpen, "移除 GMS 使用限制", "移除国行 GMS 限制标记",
+                ToggleRow(2, 6, Icons.Rounded.AccountBalanceWallet, "Google钱包", "启用双击电源键呼出Google钱包，需将Google钱包设置为默认付款应用",
+                    state.features[FeaturePolicy.WALLET] == true, available, { onSetting(FeaturePolicy.WALLET, it) })
+                ToggleRow(3, 6, Icons.Rounded.DashboardCustomize, "快捷入口与控制中心", "补全锁屏快捷入口与下拉控制中心的原生开关",
+                    state.features[FeaturePolicy.QUICK_ENTRIES] == true, available, { onSetting(FeaturePolicy.QUICK_ENTRIES, it) })
+                ToggleRow(4, 6, Icons.Rounded.LockOpen, "移除 GMS 使用限制", "移除国行 GMS 限制标记",
                     state.features[FeaturePolicy.GMS] == true, available, { onSetting(FeaturePolicy.GMS, it) })
-                ToggleRow(3, 4, Icons.Rounded.SettingsSuggest, "设置底部显示 Google", "强制显示设置底部Google",
+                ToggleRow(5, 6, Icons.Rounded.SettingsSuggest, "设置底部显示 Google", "强制显示设置底部Google",
                     state.features[FeaturePolicy.GOOGLE_ENTRY] == true, available, { onSetting(FeaturePolicy.GOOGLE_ENTRY, it) })
             }
             Group("其他设置") {
                 ToggleRow(0, 2, Icons.Rounded.VisibilityOff, "隐藏桌面图标", "隐藏后，可从 LSPosed 打开",
-                    state.iconHidden, !state.busy, onIconVisibility)
+                    state.iconHidden, true, onIconVisibility)
                 SettingRow(1, 2, Icons.Rounded.Info, "关于 Coogle", "zopulus · ${BuildConfig.VERSION_NAME}", onClick = onAbout)
             }
             Spacer(Modifier.height(24.dp))

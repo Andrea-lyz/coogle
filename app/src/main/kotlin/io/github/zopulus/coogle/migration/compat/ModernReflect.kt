@@ -135,7 +135,7 @@ internal object ModernReflect {
         return methodTableCache.putIfAbsent(targetClass, resolved) ?: resolved
     }
 
-    private fun findField(targetClass: Class<*>, fieldName: String): Field {
+    internal fun findField(targetClass: Class<*>, fieldName: String): Field {
         val key = FieldKey(targetClass, fieldName)
         fieldCache[key]?.let { return it }
         var current: Class<*>? = targetClass

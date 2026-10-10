@@ -24,6 +24,7 @@ import java.util.concurrent.Executors
 
 class MainActivity : ComponentActivity() {
     private val worker = Executors.newSingleThreadExecutor()
+    private val savingKeys = mutableSetOf<String>()
     private var preferences: SharedPreferences? = null
     private var companionCheckedThisResume = false
     private var state by mutableStateOf(CoogleState())
@@ -71,14 +72,14 @@ class MainActivity : ComponentActivity() {
     }
 
     private fun changeSetting(key: String, enabled: Boolean) {
-        if (state.busy || preferences == null) return
+        if (state.busy || preferences == null || key in savingKeys) return
         if (key == FeaturePolicy.HEY_GOOGLE && enabled) checkCompanion(true)
         else saveSetting(key, enabled)
     }
 
     private fun saveSetting(key: String, enabled: Boolean, companionInstalled: Boolean? = null) {
         val settings = preferences ?: return
-        state = state.copy(busy = true)
+        if (!savingKeys.add(key)) return
         worker.execute {
             val result = runCatching {
                 val editor = settings.edit().putBoolean(key, enabled)
@@ -87,9 +88,10 @@ class MainActivity : ComponentActivity() {
             }
             runOnUiThread {
                 if (isDestroyed) return@runOnUiThread
-                state = state.copy(busy = false)
-                syncPreferences()
-                result.onFailure { error(it.message ?: "配置保存失败") }
+                savingKeys.remove(key)
+                result.onSuccess {
+                    state = state.copy(features = state.features + (key to enabled))
+                }.onFailure { error(it.message ?: "配置保存失败") }
             }
         }
     }
