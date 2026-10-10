@@ -24,6 +24,15 @@ class CombinedTest(unittest.TestCase):
             self.assertFalse(any(n.startswith('system/product/etc/') or n.startswith('system/vendor/') for n in listed))
             self.assertNotIn('system/odm/etc/resourcemanager.xml',z.namelist())
 
+    def test_no_gemini_systemization(self):
+        with zipfile.ZipFile(OUT) as z:
+            self.assertNotIn('systemize-gemini.sh', z.namelist())
+            for name in z.namelist():
+                self.assertNotIn('gemini', name.lower())
+                if name.endswith('.sh'):
+                    self.assertNotIn(b'com.google.android.apps.bard', z.read(name))
+                    self.assertNotIn(b'Gemini', z.read(name))
+
     def test_only_initialization_cleanup_and_permissions(self):
         with zipfile.ZipFile(OUT) as z:
             self.assertIn(b'author=zopulus\n',z.read('module.prop'))

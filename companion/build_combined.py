@@ -21,7 +21,7 @@ def payload():
                 assert info.filename not in files
                 files[info.filename] = systemizer.read(info)
         systemizer_install = systemizer.read('customize.sh').decode('utf-8').replace('\r\n','\n')
-    for name in ('patch-audio.awk', 'prepare-audio.sh', 'status.sh', 'hotword-status.awk', 'systemize-gemini.sh'):
+    for name in ('patch-audio.awk', 'prepare-audio.sh', 'status.sh', 'hotword-status.awk'):
         path = ROOT/'integration'/name
         files[name] = path.read_bytes().replace(b'\r\n', b'\n')
     for name in ('setup.sh', 'uninstall.sh'):
@@ -34,13 +34,12 @@ sleep 30
 /system/bin/sh "$MODDIR/status.sh" > /dev/null 2>&1
 '''
     installer = '#!/system/bin/sh\n' + systemizer_install + '''
-. "$MODPATH/systemize-gemini.sh"
 set_perm_recursive "$MODPATH/system" 0 0 0755 0644
 for script in boot-completed.sh setup.sh uninstall.sh prepare-audio.sh status.sh; do
     set_perm "$MODPATH/$script" 0 0 0755
 done
 /system/bin/sh "$MODPATH/prepare-audio.sh"
-ui_print "Google/Gemini system apps, enrollment and DSP support combined. Reboot required."
+ui_print "Google system app, enrollment and DSP support combined. Reboot required."
 '''
     files['customize.sh'] = installer.replace('\r\n', '\n').encode()
     files['module.prop'] = 'id=coogle_companion\nname=Coogle 附属模块\nversion=1.1\nversionCode=110\nauthor=zopulus\ndescription=[⏳待重启检测]\n'.encode()

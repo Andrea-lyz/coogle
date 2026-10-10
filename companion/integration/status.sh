@@ -1,19 +1,11 @@
 #!/system/bin/sh
 MODDIR=${0%/*}
 google='⚠️Google未固化'
-gemini='未安装Gemini'
 enrollment='⚠️注册组件未就绪'
 dsp='⚠️DSP未运行'
 package=$(dumpsys -t 10 package com.google.android.googlequicksearchbox 2>/dev/null | grep -m 1 'flags=\[.*SYSTEM')
 if [ -n "$package" ]; then
     google='✅Google系统应用'
-fi
-if pm path com.google.android.apps.bard 2>/dev/null | grep -q '^package:'; then
-    if dumpsys -t 10 package com.google.android.apps.bard 2>/dev/null | grep -m 1 -q 'flags=\[.*SYSTEM'; then
-        gemini='✅Gemini系统应用'
-    else
-        gemini='⚠️Gemini未固化'
-    fi
 fi
 library=$(pm list libraries 2>/dev/null)
 if pm path com.android.hotwordenrollment.xgoogle 2>/dev/null | grep -q '^package:' &&
@@ -34,7 +26,7 @@ case "$audio" in
     io-failed) dsp="$dsp；音频配置写入失败" ;;
     label-failed) dsp="$dsp；音频标签设置失败" ;;
 esac
-description="[$google | $gemini | $enrollment | $dsp]"
+description="[$google | $enrollment | $dsp]"
 sed '/^description=/d' "$MODDIR/module.prop" > "$MODDIR/module.prop.tmp" || exit 1
 printf 'description=%s\n' "$description" >> "$MODDIR/module.prop.tmp"
 chmod 0644 "$MODDIR/module.prop.tmp"
