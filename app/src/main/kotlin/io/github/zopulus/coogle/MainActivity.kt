@@ -12,6 +12,7 @@ import androidx.activity.enableEdgeToEdge
 import androidx.compose.runtime.getValue
 import androidx.compose.runtime.mutableStateOf
 import androidx.compose.runtime.setValue
+import androidx.lifecycle.Lifecycle
 import io.github.zopulus.coogle.ui.CoogleScreen
 import io.github.zopulus.coogle.ui.CoogleState
 import io.github.zopulus.coogle.ui.CoogleTheme
@@ -24,12 +25,12 @@ import java.util.concurrent.Executors
 class MainActivity : ComponentActivity() {
     private val worker = Executors.newSingleThreadExecutor()
     private var preferences: SharedPreferences? = null
+    private var companionCheckedThisResume = false
     private var state by mutableStateOf(CoogleState())
 
     override fun onCreate(savedInstanceState: Bundle?) {
         super.onCreate(savedInstanceState)
         enableEdgeToEdge()
-        state = state.copy(assistant = AssistantSelection.summary(this), iconHidden = iconHidden())
         setContent {
             CoogleTheme {
                 CoogleScreen(state, ::changeSetting, ::openAssistant, ::changeIconVisibility,
@@ -42,6 +43,7 @@ class MainActivity : ComponentActivity() {
 
     override fun onResume() {
         super.onResume()
+        companionCheckedThisResume = false
         state = state.copy(assistant = AssistantSelection.summary(this), iconHidden = iconHidden())
         if (preferences != null && state.features[FeaturePolicy.HEY_GOOGLE] == true) checkCompanion(false)
     }
@@ -56,7 +58,8 @@ class MainActivity : ComponentActivity() {
         if (isDestroyed) return
         preferences = runCatching { service?.getRemotePreferences(FeatureConfig.GROUP) }.getOrNull()
         syncPreferences()
-        if (state.features[FeaturePolicy.HEY_GOOGLE] == true) checkCompanion(false)
+        if (lifecycle.currentState.isAtLeast(Lifecycle.State.RESUMED) &&
+            state.features[FeaturePolicy.HEY_GOOGLE] == true) checkCompanion(false)
     }
 
     private fun syncPreferences() {
@@ -93,6 +96,8 @@ class MainActivity : ComponentActivity() {
 
     private fun checkCompanion(enableAfterCheck: Boolean) {
         if (state.busy) return
+        if (!enableAfterCheck && companionCheckedThisResume) return
+        companionCheckedThisResume = true
         state = state.copy(busy = true, companion = CompanionState.CHECKING)
         worker.execute {
             val result = runCatching { CompanionState.valueOf(CompanionInstaller.check()) }

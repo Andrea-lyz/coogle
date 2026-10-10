@@ -46,6 +46,8 @@ tasks.register('compileHotwordUidTest', JavaCompile) {
 tasks.register('testHotwordUid', JavaExec) {
     dependsOn 'compileReleaseKotlin', 'compileHotwordUidTest'
     classpath = files(hotwordTestClasses, layout.buildDirectory.dir('intermediates/built_in_kotlinc/release/compileReleaseKotlin/classes')) +
-        files({ configurations.releaseRuntimeClasspath.findAll { it.name.startsWith('kotlin-stdlib-') && it.name.endsWith('.jar') } })
+        files({ configurations.releaseRuntimeClasspath.findAll { it.name.startsWith('kotlin-stdlib-') && it.name.endsWith('.jar') } }) +
+        files({ zipTree(configurations.releaseCompileClasspath.find { it.name == 'api-102.0.0.aar' })
+            .matching { include 'classes.jar' }.singleFile })
     mainClass = 'io.github.zopulus.coogle.HotwordUidTest'
 }

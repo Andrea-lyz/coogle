@@ -9,6 +9,19 @@ import java.util.concurrent.ConcurrentHashMap
 internal object ModernHookRegistry {
     private val handles = ConcurrentHashMap<String, XposedInterface.HookHandle>()
 
+    fun installInterceptor(
+        key: String,
+        executable: Executable,
+        callback: XposedInterface.Hooker,
+    ): XposedInterface.HookHandle {
+        handles[key]?.let { return it }
+        executable.isAccessible = true
+        val installed = ModernHookRuntime.requireModule().hook(executable)
+            .setExceptionMode(XposedInterface.ExceptionMode.PROTECTIVE)
+            .intercept(callback)
+        return handles.putIfAbsent(key, installed)?.also { installed.unhook() } ?: installed
+    }
+
     fun installCompat(
         key: String,
         executable: Executable,

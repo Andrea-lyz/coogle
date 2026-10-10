@@ -129,38 +129,60 @@ internal object OkGoogleHotwordCompatibilityHooker {
     private fun installPermissionCheckHook(classKey: String, method: Method): Boolean {
         val key = "ok-google-permission:$classKey:${method.toGenericString()}"
         return runCatching {
-            ModernHookRegistry.installCompat(
+            ModernHookRegistry.installInterceptor(
                 key = key,
                 executable = method,
-                callback = object : ModernMethodHook() {
-                    override fun beforeHookedMethod(param: MethodHookParam) {
-                        val permission = param.args
-                            .filterIsInstance<String>()
-                            .firstOrNull { it in hotwordPermissions }
-                            ?: return
-
-                        rememberSystemContext(param.thisObject)
-                        when {
-                            param.args.any { it == GOOGLE_APP_PACKAGE } ||
-                                param.args.any(::hasGooglePackageName) -> {
-                                param.result = PERMISSION_GRANTED
-                                logFirstPackageBypass(permission)
-                            }
-
-                            param.args
-                                .filterIsInstance<Int>()
-                                .any(::isGoogleUid) -> {
-                                param.result = PERMISSION_GRANTED
-                                logFirstUidBypass(permission)
-                            }
-                        }
+                callback = { chain ->
+                    val permission = try {
+                        permissionToBypass(chain.args, chain.thisObject)
+                    } catch (error: Throwable) {
+                        HookLog.w(TAG, "Hotword permission callback failed", error)
+                        null
                     }
+                    if (permission != null) PERMISSION_GRANTED else chain.proceed()
                 },
             )
             true
         }.onFailure {
             HookLog.w(TAG, "Failed to hook ${method.declaringClass.name}#${method.name}", it)
         }.getOrDefault(false)
+    }
+
+    private fun permissionToBypass(args: List<Any?>, owner: Any?): String? {
+        var permission: String? = null
+        for (index in args.indices) {
+            val argument = args[index]
+            if (argument is String && argument in hotwordPermissions) {
+                permission = argument
+                break
+            }
+        }
+        // Most system permission checks are unrelated; avoid copies and identity lookups.
+        if (permission == null) return null
+        rememberSystemContext(owner)
+        for (index in args.indices) {
+            val argument = args[index]
+            if (argument == GOOGLE_APP_PACKAGE) {
+                logFirstPackageBypass(permission)
+                return permission
+            }
+        }
+        for (index in args.indices) {
+            val argument = args[index]
+            if (argument != null && argument !is String && argument !is Int &&
+                hasGooglePackageName(argument)) {
+                logFirstPackageBypass(permission)
+                return permission
+            }
+        }
+        for (index in args.indices) {
+            val argument = args[index]
+            if (argument is Int && isGoogleUid(argument)) {
+                logFirstUidBypass(permission)
+                return permission
+            }
+        }
+        return null
     }
 
     private fun logFirstPackageBypass(permission: String) {
