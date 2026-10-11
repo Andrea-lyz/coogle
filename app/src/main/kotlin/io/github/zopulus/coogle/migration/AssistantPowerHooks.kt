@@ -9,7 +9,6 @@ import android.provider.Settings
 import io.github.zopulus.coogle.migration.compat.ModernHookBridge as XposedBridge
 import io.github.zopulus.coogle.migration.compat.ModernMethodHook as XC_MethodHook
 import io.github.zopulus.coogle.migration.compat.ModernReflect as XposedHelpers
-import io.github.zopulus.coogle.migration.AssistantHooker.hook
 import io.github.zopulus.coogle.migration.AssistantVoiceHooks.refreshLiveAssistantBinding
 import io.github.zopulus.coogle.migration.AssistantRuntime.SECURE_DISABLE_GOOGLE_ASSIST_POWER_WAKEUP
 import io.github.zopulus.coogle.migration.AssistantRuntime.SYSTEM_QUICK_TURN_ON_VOICE_ASSISTANT
@@ -30,19 +29,20 @@ internal object AssistantPowerHooks {
         val key = "$packageName:native-power-long-press:${cls.name}"
         if (!installedHooks.add(key)) return
         runCatching {
-            val targets = cls.declaredMethods
-                .filter { method ->
-                    method.name == "startSpeech" &&
-                        method.parameterTypes.contentEquals(
-                            arrayOf(
-                                Integer.TYPE,
-                                Integer.TYPE,
-                                java.lang.Long.TYPE,
-                            ),
-                        )
-                }
-            check(targets.isNotEmpty()) { "C17 startSpeech(int, int, long) was not found" }
-            targets.forEach { method ->
+            XposedBridge.atomic {
+                val targets = cls.declaredMethods
+                    .filter { method ->
+                        method.name == "startSpeech" &&
+                            method.parameterTypes.contentEquals(
+                                arrayOf(
+                                    Integer.TYPE,
+                                    Integer.TYPE,
+                                    java.lang.Long.TYPE,
+                                ),
+                            )
+                    }
+                check(targets.isNotEmpty()) { "C17 startSpeech(int, int, long) was not found" }
+                targets.forEach { method ->
                     XposedBridge.hookMethod(
                         method,
                         object : XC_MethodHook() {
@@ -54,29 +54,30 @@ internal object AssistantPowerHooks {
                         },
                     )
                 }
-            XposedBridge.hookAllMethods(
-                cls,
-                "isSpeechDisabled",
-                object : XC_MethodHook() {
-                    override fun beforeHookedMethod(param: MethodHookParam) {
-                        val context = findContext(param.thisObject) ?: systemContext ?: return
-                        param.result = !isPowerAssistantEnabled(context)
-                    }
-                },
-            )
-            XposedBridge.hookAllMethods(
-                cls,
-                "registerSettingsForOplusLocked",
-                object : XC_MethodHook() {
-                    override fun afterHookedMethod(param: MethodHookParam) {
-                        val source = param.thisObject ?: return
-                        val context = findContext(source) ?: systemContext ?: return
-                        registerPowerSettingBridge(source, context)
-                        applyC17NativePowerConfiguration(source, context)
-                    }
-                },
-            )
-            log("Hooked the ColorOS 17 native power-button assistant entry")
+                XposedBridge.hookAllMethods(
+                    cls,
+                    "isSpeechDisabled",
+                    object : XC_MethodHook() {
+                        override fun beforeHookedMethod(param: MethodHookParam) {
+                            val context = findContext(param.thisObject) ?: systemContext ?: return
+                            param.result = !isPowerAssistantEnabled(context)
+                        }
+                    },
+                )
+                XposedBridge.hookAllMethods(
+                    cls,
+                    "registerSettingsForOplusLocked",
+                    object : XC_MethodHook() {
+                        override fun afterHookedMethod(param: MethodHookParam) {
+                            val source = param.thisObject ?: return
+                            val context = findContext(source) ?: systemContext ?: return
+                            registerPowerSettingBridge(source, context)
+                            applyC17NativePowerConfiguration(source, context)
+                        }
+                    },
+                )
+                log("Hooked the ColorOS 17 native power-button assistant entry")
+            }
         }.onFailure {
             installedHooks.remove(key)
             log("Failed to hook the ColorOS 17 native power-button assistant entry", it)
@@ -103,7 +104,6 @@ internal object AssistantPowerHooks {
             val enabledMap = XposedHelpers.getObjectField(source, "mSpeechEnabledMap")
                 as? MutableMap<Any?, Any?>
             enabledMap?.set(currentUser, internationalPowerState)
-            log("Selected the ColorOS 17 native type-6 power assistant route")
         }.onFailure {
             log("Failed to select the ColorOS 17 native power assistant route", it)
         }

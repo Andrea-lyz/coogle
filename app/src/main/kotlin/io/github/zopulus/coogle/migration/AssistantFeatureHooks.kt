@@ -4,7 +4,6 @@ package io.github.zopulus.coogle.migration
 import io.github.zopulus.coogle.migration.compat.ModernHookBridge as XposedBridge
 import io.github.zopulus.coogle.migration.compat.ModernMethodHook as XC_MethodHook
 import io.github.zopulus.coogle.migration.compat.ModernReflect as XposedHelpers
-import io.github.zopulus.coogle.migration.AssistantHooker.hook
 import io.github.zopulus.coogle.migration.AssistantRuntime.SYSTEM_PACKAGE
 import io.github.zopulus.coogle.migration.AssistantRuntime.ANDROID_PACKAGE
 import io.github.zopulus.coogle.migration.AssistantRuntime.GOOGLE_ASSISTANT_APP_FEATURE
@@ -133,8 +132,8 @@ internal object AssistantFeatureHooks {
                             method,
                             object : XC_MethodHook() {
                                 override fun beforeHookedMethod(param: MethodHookParam) {
-                                    if (!LspConfig.isAssistantNativeCircleEnabledXposed()) return
-                                    if (param.args.firstOrNull() == CONTEXTUAL_SEARCH_SYSTEM_FEATURE) {
+                                    if (param.args.firstOrNull() == CONTEXTUAL_SEARCH_SYSTEM_FEATURE &&
+                                        LspConfig.isAssistantNativeCircleEnabledXposed()) {
                                         param.result = true
                                     }
                                 }

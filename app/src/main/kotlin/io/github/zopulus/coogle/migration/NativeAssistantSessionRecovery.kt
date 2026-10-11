@@ -16,6 +16,7 @@ import io.github.zopulus.coogle.migration.compat.ModernReflect
 import java.lang.reflect.Method
 import java.lang.reflect.Proxy
 import java.util.concurrent.atomic.AtomicBoolean
+import java.util.concurrent.ConcurrentHashMap
 
 /** Watches the native show callback without replacing a successful assistant invocation. */
 internal object NativeAssistantSessionRecovery {
@@ -29,6 +30,8 @@ internal object NativeAssistantSessionRecovery {
     private val handler by lazy { Handler(Looper.getMainLooper()) }
     private val replaying = ThreadLocal<Boolean>()
     private var pending: ShowAttempt? = null
+    private data class CallbackTransactions(val shown: Int, val failed: Int)
+    private val callbackBindings = ConcurrentHashMap<Class<*>, CallbackTransactions>()
 
     fun prepare(stub: Any, method: Method, args: Array<Any?>) {
         if (replaying.get() == true) return
@@ -70,7 +73,6 @@ internal object NativeAssistantSessionRecovery {
             // A new corner invocation must not reuse Google's unresponsive cached session.
             // Keep the selected voice service bound and replace only its session connection.
             ModernReflect.callMethod(impl, "finishLocked", token, false)
-            HookLog.i(TAG, "Released the cached Google corner session before native show")
         }
     }
 
@@ -120,7 +122,6 @@ internal object NativeAssistantSessionRecovery {
         val invocationType: Int,
         val retry: Int,
     ) {
-        private val startedAt = SystemClock.uptimeMillis()
         val completed = AtomicBoolean(false)
         val timeout = Runnable { complete(shown = false) }
         val callback: Any = createCallback(method.parameterTypes[3]) { complete(it) }
@@ -137,11 +138,6 @@ internal object NativeAssistantSessionRecovery {
                 if (pending !== this) return@post
                 if (shown) {
                     pending = null
-                    HookLog.i(
-                        TAG,
-                        "Native Google session shown: type=$invocationType, " +
-                            "elapsed=${SystemClock.uptimeMillis() - startedAt}ms, retry=$retry",
-                    )
                     if (retry > 0) HookLog.i(TAG, "Native Google assistant session recovered")
                 } else if (retry == 0) {
                     recover()
@@ -241,20 +237,21 @@ internal object NativeAssistantSessionRecovery {
     }
 
     private fun createCallback(callbackClass: Class<*>, onComplete: (Boolean) -> Unit): Any {
-        val stubClass = Class.forName("$CALLBACK_DESCRIPTOR\$Stub", false, callbackClass.classLoader)
-        fun transaction(name: String): Int = stubClass.getDeclaredField("TRANSACTION_$name")
-            .apply { isAccessible = true }.getInt(null)
-        val shownCode = transaction("onShown")
-        val failedCode = transaction("onFailed")
+        val binding = callbackBindings.computeIfAbsent(callbackClass) {
+            val stubClass = Class.forName("$CALLBACK_DESCRIPTOR\$Stub", false, it.classLoader)
+            fun transaction(name: String): Int = stubClass.getDeclaredField("TRANSACTION_$name")
+                .apply { isAccessible = true }.getInt(null)
+            CallbackTransactions(transaction("onShown"), transaction("onFailed"))
+        }
         val binder = object : Binder() {
             override fun onTransact(code: Int, data: Parcel, reply: Parcel?, flags: Int): Boolean {
                 if (code == IBinder.INTERFACE_TRANSACTION) {
                     reply?.writeString(CALLBACK_DESCRIPTOR)
                     return true
                 }
-                if (code == shownCode || code == failedCode) {
+                if (code == binding.shown || code == binding.failed) {
                     data.enforceInterface(CALLBACK_DESCRIPTOR)
-                    onComplete(code == shownCode)
+                    onComplete(code == binding.shown)
                     return true
                 }
                 return super.onTransact(code, data, reply, flags)

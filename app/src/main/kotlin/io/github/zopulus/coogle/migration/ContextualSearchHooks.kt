@@ -8,7 +8,6 @@ import android.os.Process
 import io.github.zopulus.coogle.migration.compat.ModernHookBridge as XposedBridge
 import io.github.zopulus.coogle.migration.compat.ModernMethodHook as XC_MethodHook
 import io.github.zopulus.coogle.migration.compat.ModernReflect as XposedHelpers
-import io.github.zopulus.coogle.migration.AssistantHooker.hook
 import io.github.zopulus.coogle.migration.AssistantFeatureHooks.hookContextualSearchSystemFeature
 import io.github.zopulus.coogle.migration.AssistantRuntime.SYSTEM_UI_PACKAGE
 import io.github.zopulus.coogle.migration.AssistantRuntime.GOOGLE_APP_PACKAGE
@@ -63,41 +62,43 @@ internal object ContextualSearchHooks {
         val key = "contextual:${cls.name}"
         if (!installedHooks.add(key)) return
         runCatching {
-            cls.declaredMethods
-                .filter { it.name == "getContextualSearchPackageName" }
-                .forEach { method ->
-                    XposedBridge.hookMethod(
-                        method,
-                        object : XC_MethodHook() {
-                            override fun beforeHookedMethod(param: MethodHookParam) {
-                                if (isCircleFeatureEnabled()) {
-                                    param.result = GOOGLE_APP_PACKAGE
+            XposedBridge.atomic {
+                cls.declaredMethods
+                    .filter { it.name == "getContextualSearchPackageName" }
+                    .forEach { method ->
+                        XposedBridge.hookMethod(
+                            method,
+                            object : XC_MethodHook() {
+                                override fun beforeHookedMethod(param: MethodHookParam) {
+                                    if (isCircleFeatureEnabled()) {
+                                        param.result = GOOGLE_APP_PACKAGE
+                                    }
                                 }
                             }
-                        }
-                    )
-                }
-            cls.declaredMethods
-                .filter { it.name == "enforcePermission" }
-                .forEach { method ->
-                    XposedBridge.hookMethod(
-                        method,
-                        object : XC_MethodHook() {
-                            override fun beforeHookedMethod(param: MethodHookParam) {
-                                if (isCircleFeatureEnabled() &&
-                                    isTrustedContextualSearchCaller()
-                                ) {
-                                    param.result = null
+                        )
+                    }
+                cls.declaredMethods
+                    .filter { it.name == "enforcePermission" }
+                    .forEach { method ->
+                        XposedBridge.hookMethod(
+                            method,
+                            object : XC_MethodHook() {
+                                override fun beforeHookedMethod(param: MethodHookParam) {
+                                    if (isCircleFeatureEnabled() &&
+                                        isTrustedContextualSearchCaller()
+                                    ) {
+                                        param.result = null
+                                    }
                                 }
                             }
-                        }
-                    )
-                }
-            cls.declaredMethods
-                .filter { it.name == "startContextualSearch" }
-                .forEach { method ->
-                    XposedBridge.hookMethod(method, ContextualSearchIdentityHook)
-                }
+                        )
+                    }
+                cls.declaredMethods
+                    .filter { it.name == "startContextualSearch" }
+                    .forEach { method ->
+                        XposedBridge.hookMethod(method, ContextualSearchIdentityHook)
+                    }
+            }
         }.onFailure {
             installedHooks.remove(key)
             log("Failed to hook contextual search service ${cls.name}", it)
@@ -119,17 +120,13 @@ internal object ContextualSearchHooks {
     fun triggerCircleToSearchC17(): Boolean {
         val token = Binder.clearCallingIdentity()
         return runCatching {
-            val binder = getService("contextual_search") ?: return@runCatching false
-            val stubClass = Class.forName("android.app.contextualsearch.IContextualSearchManager\$Stub")
-            val service = stubClass
-                .getMethod("asInterface", IBinder::class.java)
-                .invoke(null, binder)
+            val api = contextualSearchApi
+            // Cache only reflection members. Always resolve the current service Binder.
+            val binder = api.getService.invoke(null, "contextual_search") as? IBinder ?: return@runCatching false
+            val service = api.asInterface.invoke(null, binder)
                 ?: return@runCatching false
-            val method = service.javaClass.methods.firstOrNull {
-                it.name == "startContextualSearch" && it.parameterTypes.size == 2
-            } ?: return@runCatching false
             // A null ContextualSearchConfig selects the framework's DEFAULT_CONFIG.
-            method.invoke(service, 1, null)
+            api.start.invoke(service, 1, null)
             true
         }.onFailure {
             log("Failed to trigger Circle to Search through the ColorOS 17 API", it)
@@ -137,13 +134,16 @@ internal object ContextualSearchHooks {
             Binder.restoreCallingIdentity(token)
         }.getOrDefault(false)
     }
-    private fun getService(name: String): IBinder? {
-        return runCatching {
-            Class.forName("android.os.ServiceManager")
-                .getMethod("getService", String::class.java)
-                .invoke(null, name) as? IBinder
-        }.getOrNull()
+    private class ContextualSearchApi {
+        val getService = Class.forName("android.os.ServiceManager").getMethod("getService", String::class.java)
+        val asInterface = Class.forName("android.app.contextualsearch.IContextualSearchManager\$Stub")
+            .getMethod("asInterface", IBinder::class.java)
+        val start = Class.forName("android.app.contextualsearch.IContextualSearchManager")
+            .getMethod("startContextualSearch", Int::class.javaPrimitiveType,
+                Class.forName("android.app.contextualsearch.ContextualSearchConfig"))
     }
+    // A failed lazy initialization remains retryable when framework classes become available.
+    private val contextualSearchApi by lazy { ContextualSearchApi() }
     private fun findContextualSearchConfigId(classLoader: ClassLoader): Int? {
         return runCatching {
             val cls = XposedHelpers.findClass("com.android.internal.R\$string", classLoader)

@@ -6,6 +6,7 @@ import android.content.SharedPreferences
 import android.content.pm.PackageManager
 import android.net.Uri
 import android.os.Bundle
+import android.os.SystemClock
 import androidx.activity.ComponentActivity
 import androidx.activity.compose.setContent
 import androidx.activity.enableEdgeToEdge
@@ -27,6 +28,7 @@ class MainActivity : ComponentActivity() {
     private val savingKeys = mutableSetOf<String>()
     private var preferences: SharedPreferences? = null
     private var companionCheckedThisResume = false
+    private var companionCheckedAt: Long? = null
     private var state by mutableStateOf(CoogleState())
 
     override fun onCreate(savedInstanceState: Bundle?) {
@@ -98,7 +100,9 @@ class MainActivity : ComponentActivity() {
 
     private fun checkCompanion(enableAfterCheck: Boolean) {
         if (state.busy) return
-        if (!enableAfterCheck && companionCheckedThisResume) return
+        val lastCheck = companionCheckedAt
+        if (!enableAfterCheck && (companionCheckedThisResume ||
+            (lastCheck != null && SystemClock.elapsedRealtime() - lastCheck < 30_000L))) return
         companionCheckedThisResume = true
         state = state.copy(busy = true, companion = CompanionState.CHECKING)
         worker.execute {
@@ -107,6 +111,7 @@ class MainActivity : ComponentActivity() {
                 if (isDestroyed) return@runOnUiThread
                 state = state.copy(busy = false)
                 result.onSuccess { installed ->
+                    companionCheckedAt = SystemClock.elapsedRealtime()
                     state = state.copy(companion = installed)
                     if (enableAfterCheck) when (installed) {
                         CompanionState.READY, CompanionState.PENDING -> saveSetting(FeaturePolicy.HEY_GOOGLE, true, true)
@@ -116,6 +121,7 @@ class MainActivity : ComponentActivity() {
                     else if (!installed.installed && state.features[FeaturePolicy.HEY_GOOGLE] == true)
                         saveSetting(FeaturePolicy.HEY_GOOGLE, false, false)
                 }.onFailure {
+                    companionCheckedAt = null
                     state = state.copy(companion = CompanionState.UNKNOWN)
                     if (enableAfterCheck) error("无法检查安装状态。请在 KernelSU 中为 Coogle 授予 Root 权限，然后重新开启 Hey Google。")
                 }
@@ -125,6 +131,7 @@ class MainActivity : ComponentActivity() {
 
     private fun installCompanion() {
         val settings = preferences ?: return
+        companionCheckedAt = null
         state = state.copy(busy = true, companion = CompanionState.INSTALLING, dialog = DialogKind.NONE)
         worker.execute {
             val result = runCatching {

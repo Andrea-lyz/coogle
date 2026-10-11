@@ -4,7 +4,7 @@ import stat
 import zipfile
 
 ROOT = Path(__file__).resolve().parent
-OUT = ROOT.parent / 'build/Coogle-Companion-1.1.zip'
+OUT = ROOT.parent / 'build/Coogle-Companion-1.2.zip'
 
 def payload():
     files = {}
@@ -42,7 +42,7 @@ done
 ui_print "Google system app, enrollment and DSP support combined. Reboot required."
 '''
     files['customize.sh'] = installer.replace('\r\n', '\n').encode()
-    files['module.prop'] = 'id=coogle_companion\nname=Coogle 附属模块\nversion=1.1\nversionCode=110\nauthor=zopulus\ndescription=[⏳待重启检测]\n'.encode()
+    files['module.prop'] = 'id=coogle_companion\nname=Coogle 附属模块\nversion=1.2\nversionCode=120\nauthor=zopulus\ndescription=[⏳待重启检测]\n'.encode()
     return files
 
 def build():

@@ -1,11 +1,10 @@
 package io.github.zopulus.coogle;
 
 import java.lang.reflect.Method;
-import static io.github.zopulus.coogle.HookInstaller.target;
-import static io.github.zopulus.coogle.HookInstaller.booleanMethod;
 
 final class SignalModelHooks {
     static void install(HookInstaller hooks, ClassLoader loader) {
+        if (!FeatureConfig.enabled(FeaturePolicy.HEY_GOOGLE)) return;
         try {
             Class<?> helper = Class.forName("com.android.server.soundtrigger.SoundTriggerHelper", false, loader);
             Class<?> model = Class.forName("android.hardware.soundtrigger.SoundTrigger$KeyphraseSoundModel", false, loader);
@@ -21,6 +20,7 @@ final class SignalModelHooks {
                     Class.forName("android.hardware.soundtrigger.IRecognitionStatusCallback", false, loader),
                     Class.forName("android.hardware.soundtrigger.SoundTrigger$RecognitionConfig", false, loader), boolean.class);
             hooks.install(start, chain -> {
+                if (!FeatureConfig.enabled(FeaturePolicy.HEY_GOOGLE)) return chain.proceed();
                 Object source = chain.getArg(1);
                 Object replacement = null;
                 if (Integer.valueOf(101).equals(chain.getArg(0)) && source != null) {

@@ -21,7 +21,7 @@ public final class CoogleModule extends XposedModule {
         MigrationEntry.attach(this);
         MigrationEntry.hookSystem(param.getClassLoader());
         SignalModelHooks.install(hooks, param.getClassLoader());
-        hooks.info("SYSTEM native assistant + Google hotword hooks installed");
+        hooks.info("SYSTEM native assistant and hotword initialization complete");
     }
 
     @Override public void onPackageReady(XposedModuleInterface.PackageReadyParam param) {

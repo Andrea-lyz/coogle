@@ -40,7 +40,6 @@ import androidx.compose.material.icons.rounded.VisibilityOff
 import androidx.compose.material3.AlertDialog
 import androidx.compose.material3.Icon
 import androidx.compose.material3.LargeFlexibleTopAppBar
-import androidx.compose.material3.LinearProgressIndicator
 import androidx.compose.material3.ListItem
 import androidx.compose.material3.contentColorFor
 import androidx.compose.material3.ListItemDefaults
@@ -140,8 +139,7 @@ fun CoogleScreen(
                 SettingRow(0, 3, Icons.Rounded.RecordVoiceOver, "默认数字助理", state.assistant, onClick = onAssistant)
                 ToggleRow(1, 3, Icons.Rounded.Mic, "开启 Hey Google", state.companion.summary,
                     checked = state.features[FeaturePolicy.HEY_GOOGLE] == true, enabled = available && !state.busy,
-                    onChange = { onSetting(FeaturePolicy.HEY_GOOGLE, it) },
-                    progress = state.companion in setOf(CompanionState.CHECKING, CompanionState.INSTALLING))
+                    onChange = { onSetting(FeaturePolicy.HEY_GOOGLE, it) })
                 ToggleRow(2, 3, Icons.Rounded.CenterFocusStrong, "Google智能镜头", "补全Google智能镜头功能",
                     state.features[FeaturePolicy.LENS] == true, available, { onSetting(FeaturePolicy.LENS, it) })
             }
@@ -182,7 +180,7 @@ private fun Group(title: String, content: @Composable () -> Unit) {
 @Composable
 private fun SettingRow(index: Int, count: Int, icon: ImageVector, title: String, summary: String,
     onClick: () -> Unit, enabled: Boolean = true, modifier: Modifier = Modifier,
-    progress: Boolean = false, trailing: (@Composable () -> Unit)? = null) {
+    trailing: (@Composable () -> Unit)? = null) {
     SegmentedListItem(
         modifier = modifier.fillMaxWidth(),
         shapes = ListItemDefaults.segmentedShapes(index, count).let {
@@ -196,21 +194,16 @@ private fun SettingRow(index: Int, count: Int, icon: ImageVector, title: String,
         verticalAlignment = Alignment.CenterVertically,
         leadingContent = { Icon(icon, null, Modifier.size(24.dp)) },
         trailingContent = trailing ?: { Icon(Icons.AutoMirrored.Filled.KeyboardArrowRight, null) },
-        supportingContent = {
-            Column(verticalArrangement = Arrangement.spacedBy(6.dp)) {
-                Text(summary)
-                if (progress) LinearProgressIndicator(Modifier.fillMaxWidth())
-            }
-        },
+        supportingContent = { Text(summary) },
         content = { Text(title) }
     )
 }
 
 @Composable
 private fun ToggleRow(index: Int, count: Int, icon: ImageVector, title: String, summary: String,
-    checked: Boolean, enabled: Boolean, onChange: (Boolean) -> Unit, progress: Boolean = false) {
+    checked: Boolean, enabled: Boolean, onChange: (Boolean) -> Unit) {
     SettingRow(index, count, icon, title, summary, { onChange(!checked) }, enabled,
-        Modifier.semantics { role = Role.Switch; stateDescription = if (checked) "已开启" else "已关闭" }, progress) {
+        Modifier.semantics { role = Role.Switch; stateDescription = if (checked) "已开启" else "已关闭" }) {
         Switch(
             checked = checked,
             onCheckedChange = null,

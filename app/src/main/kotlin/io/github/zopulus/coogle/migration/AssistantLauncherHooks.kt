@@ -2,6 +2,11 @@
 package io.github.zopulus.coogle.migration
 
 import android.content.Context
+import android.database.ContentObserver
+import android.os.Handler
+import android.os.Looper
+import android.provider.Settings
+import java.lang.reflect.Method
 import io.github.zopulus.coogle.migration.compat.ModernHookBridge as XposedBridge
 import io.github.zopulus.coogle.migration.compat.ModernMethodHook as XC_MethodHook
 import io.github.zopulus.coogle.migration.compat.ModernReflect as XposedHelpers
@@ -27,7 +32,7 @@ internal object AssistantLauncherHooks {
         val key = "launcher:native-circle-feature-option"
         if (!installedHooks.add(key)) return
         runCatching {
-            // ProbeModule owns the Circle to Search gates and their caller deoptimization.
+            // NavigationHooks owns the Circle to Search gates and their caller deoptimization.
             XposedBridge.hookAllMethods(
                 featureClass,
                 "isSupportGemini",
@@ -48,6 +53,30 @@ internal object AssistantLauncherHooks {
         // The upstream override uses firmware-specific proxy names and is unnecessary here.
     }
     /** Assistant availability reporting. */
+    @Volatile private var availabilityCallback: (() -> Unit)? = null
+    @Volatile private var availabilityContext: Context? = null
+    private var availabilityObserver: ContentObserver? = null
+
+    @Synchronized
+    private fun observeCornerAvailability(context: Context, receiver: Any, method: Method, longPressAvailable: Boolean) {
+        val appContext = context.applicationContext ?: context
+        availabilityCallback = {
+            // Reuse the native binder callback; it schedules the device-state update on the launcher thread.
+            method.invoke(receiver, false, longPressAvailable)
+        }
+        if (availabilityObserver != null) return
+        val observer = object : ContentObserver(Handler(Looper.getMainLooper())) {
+            override fun onChange(selfChange: Boolean) {
+                runCatching { availabilityCallback?.invoke() }.onFailure {
+                    log("Failed to refresh launcher corner-assistant availability", it)
+                }
+            }
+        }
+        appContext.contentResolver.registerContentObserver(
+            Settings.Secure.getUriFor("circle_to_search_corner_assist_enable_navi"), false, observer)
+        availabilityObserver = observer
+    }
+
     private fun hookLauncherAssistantAvailability(classLoader: ClassLoader) {
         val serviceClass = XposedHelpers.findClassIfExists(
             "com.android.quickstep.TouchInteractionService",
@@ -58,7 +87,8 @@ internal object AssistantLauncherHooks {
             .filter { method ->
                 method.name == "onAssistantAvailable" &&
                     method.parameterTypes.size == 2 &&
-                    method.parameterTypes[0] == java.lang.Boolean.TYPE
+                    method.parameterTypes[0] == java.lang.Boolean.TYPE &&
+                    method.parameterTypes[1] == java.lang.Boolean.TYPE
             }
             .forEach { method ->
                 val key = "launcher:assistant-available:${method.toGenericString()}"
@@ -69,10 +99,12 @@ internal object AssistantLauncherHooks {
                         object : XC_MethodHook() {
                             override fun beforeHookedMethod(param: MethodHookParam) {
                                 if (!LspConfig.isAssistantNativeCircleEnabledXposed()) return
-                                val context = findContext(param.thisObject) ?: return
-                                if (!isGestureCornerAssistantEnabled(context)) return
-                                if (resolveDefaultAssistant(context) == null) return
-                                param.args[0] = true
+                                val context = availabilityContext ?: findContext(param.thisObject) ?: return
+                                availabilityContext = context.applicationContext ?: context
+                                param.args[0] = isGestureCornerAssistantEnabled(context) &&
+                                    resolveDefaultAssistant(context) != null
+                                observeCornerAvailability(context, param.thisObject ?: return, method,
+                                    param.args[1] as Boolean)
                             }
                         },
                     )

@@ -7,14 +7,13 @@ import android.content.Context
 import android.content.Intent
 import android.os.Bundle
 import android.os.Binder
-import android.os.Build
 import android.os.Handler
 import android.os.Looper
 import android.provider.Settings
+import java.util.concurrent.ConcurrentHashMap
 import io.github.zopulus.coogle.migration.compat.ModernHookBridge as XposedBridge
 import io.github.zopulus.coogle.migration.compat.ModernMethodHook as XC_MethodHook
 import io.github.zopulus.coogle.migration.compat.ModernReflect as XposedHelpers
-import io.github.zopulus.coogle.migration.AssistantHooker.hook
 import io.github.zopulus.coogle.migration.AssistantRuntime.SECURE_ASSISTANT
 import io.github.zopulus.coogle.migration.AssistantRuntime.SECURE_VOICE_INTERACTION_SERVICE
 import io.github.zopulus.coogle.migration.AssistantRuntime.ASSISTANT_ROLE
@@ -28,6 +27,9 @@ import io.github.zopulus.coogle.migration.AssistantRuntime.installedHooks
 import io.github.zopulus.coogle.migration.AssistantRuntime.systemContext
 
 internal object AssistantVoiceHooks {
+    private val roleHandler by lazy { Handler(Looper.getMainLooper()) }
+    private val roleReconciliationTokens = ConcurrentHashMap<Int, Any>()
+
     /** Assistant-role and voice-service synchronization. */
     fun hookVoiceInteractionServiceRepair(
         packageName: String,
@@ -122,60 +124,60 @@ internal object AssistantVoiceHooks {
         val key = "$packageName:native-assistant-session-recovery"
         if (!installedHooks.add(key)) return
         runCatching {
-            val showMethods = cls.declaredMethods.filter {
-                it.name == "showSessionForActiveService" && it.parameterTypes.size == 5
-            }
-            check(showMethods.isNotEmpty()) { "Native assistant show method not found" }
-            showMethods.forEach { method ->
-                XposedBridge.hookMethod(method, object : XC_MethodHook() {
-                    override fun beforeHookedMethod(param: MethodHookParam) {
-                        val stub = param.thisObject ?: return
-                        NativeAssistantSessionRecovery.prepare(stub, method, param.args)
-                    }
+            XposedBridge.atomic {
+                val showMethods = cls.declaredMethods.filter {
+                    it.name == "showSessionForActiveService" && it.parameterTypes.size == 5
+                }
+                check(showMethods.isNotEmpty()) { "Native assistant show method not found" }
+                showMethods.forEach { method ->
+                    XposedBridge.hookMethod(method, object : XC_MethodHook() {
+                        override fun beforeHookedMethod(param: MethodHookParam) {
+                            val stub = param.thisObject ?: return
+                            NativeAssistantSessionRecovery.prepare(stub, method, param.args)
+                        }
 
-                    override fun afterHookedMethod(param: MethodHookParam) {
-                        NativeAssistantSessionRecovery.finishRequest(
-                            param.args.getOrNull(3),
-                            param.result == true,
-                            param.throwable,
+                        override fun afterHookedMethod(param: MethodHookParam) {
+                            NativeAssistantSessionRecovery.finishRequest(
+                                param.args.getOrNull(3),
+                                param.result == true,
+                                param.throwable,
+                            )
+                        }
+                    })
+                }
+                val implClass = XposedHelpers.findClass(
+                    "com.android.server.voiceinteraction.VoiceInteractionManagerServiceImpl",
+                    classLoader,
+                )
+                XposedBridge.hookAllMethods(implClass, "showSessionLocked", object : XC_MethodHook() {
+                    override fun beforeHookedMethod(param: MethodHookParam) {
+                        val impl = param.thisObject ?: return
+                        NativeAssistantSessionRecovery.prepareCornerSession(
+                            impl,
+                            param.args.firstOrNull() as? Bundle,
                         )
                     }
                 })
-            }
-            val implClass = XposedHelpers.findClass(
-                "com.android.server.voiceinteraction.VoiceInteractionManagerServiceImpl",
-                classLoader,
-            )
-            XposedBridge.hookAllMethods(implClass, "showSessionLocked", object : XC_MethodHook() {
-                override fun beforeHookedMethod(param: MethodHookParam) {
-                    val impl = param.thisObject ?: return
-                    NativeAssistantSessionRecovery.prepareCornerSession(
-                        impl,
-                        param.args.firstOrNull() as? Bundle,
-                    )
-                }
-            })
-            listOf("hideCurrentSession", "hideSessionFromSession", "finish").forEach { name ->
-                XposedBridge.hookAllMethods(cls, name, object : XC_MethodHook() {
-                    override fun beforeHookedMethod(param: MethodHookParam) {
-                        if (name == "hideCurrentSession") {
-                            NativeAssistantSessionRecovery.cancel()
-                        } else {
-                            val stub = param.thisObject ?: return
-                            NativeAssistantSessionRecovery.cancelSession(stub, param.args.firstOrNull())
+                listOf("hideCurrentSession", "hideSessionFromSession", "finish").forEach { name ->
+                    XposedBridge.hookAllMethods(cls, name, object : XC_MethodHook() {
+                        override fun beforeHookedMethod(param: MethodHookParam) {
+                            if (name == "hideCurrentSession") {
+                                NativeAssistantSessionRecovery.cancel()
+                            } else {
+                                val stub = param.thisObject ?: return
+                                NativeAssistantSessionRecovery.cancelSession(stub, param.args.firstOrNull())
+                            }
                         }
-                    }
-                })
+                    })
+                }
+                log("Hooked native Google assistant session timeout recovery")
             }
-            log("Hooked native Google assistant session timeout recovery")
         }.onFailure {
             installedHooks.remove(key)
             log("Failed to hook native assistant session recovery", it)
         }
     }
     private fun reconcileAssistantRoleState(context: Context, userId: Int): Boolean {
-
-        if (Build.VERSION.SDK_INT < Build.VERSION_CODES.Q) return false
         val token = Binder.clearCallingIdentity()
         return runCatching {
             val userHandleClass = Class.forName("android.os.UserHandle")
@@ -230,12 +232,16 @@ internal object AssistantVoiceHooks {
         }.getOrDefault(false)
     }
     private fun scheduleAssistantRoleReconciliation(context: Context, userId: Int) {
-        val handler = Handler(Looper.getMainLooper())
-        listOf(1_000L, 5_000L, 15_000L, 30_000L).forEach { delayMs ->
-            handler.postDelayed(
-                { reconcileAssistantRoleState(context, userId) },
-                delayMs,
-            )
+        val token = roleReconciliationTokens.getOrPut(userId) { Any() }
+        synchronized(token) {
+            roleHandler.removeCallbacksAndMessages(token)
+            listOf(1_000L, 5_000L, 15_000L, 30_000L).forEach { delayMs ->
+                roleHandler.postDelayed(
+                    { reconcileAssistantRoleState(context, userId) },
+                    token,
+                    delayMs,
+                )
+            }
         }
     }
     private fun resolveRoleAssistantState(

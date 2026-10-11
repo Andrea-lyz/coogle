@@ -8,6 +8,7 @@ import android.content.Context
 import android.os.Process
 import android.provider.Settings
 import java.util.concurrent.ConcurrentHashMap
+import java.lang.reflect.Field
 
 @SuppressLint("StaticFieldLeak")
 internal object AssistantRuntime {
@@ -43,9 +44,15 @@ internal object AssistantRuntime {
     const val INVOCATION_TYPE_POWER_BUTTON_LONG_PRESS = 6
     const val INVOCATION_TYPE_CIRCLE_TO_SEARCH = 8
     const val INVOCATION_TYPE_CIRCLE_TO_SEARCH_ALTERNATE = 1000
+    private val contextFieldCache = ConcurrentHashMap<Class<*>, Field>()
     fun findContext(source: Any?): Context? {
         val direct = source as? Context
         if (direct != null) return direct
+        if (source != null) {
+            contextFieldCache[source.javaClass]?.let { field ->
+                (runCatching { field.get(source) }.getOrNull() as? Context)?.let { return it }
+            }
+        }
         return findFieldValue(source, Context::class.java) ?: findSystemContext()
     }
     private fun <T> findFieldValue(source: Any?, type: Class<T>, depth: Int = 0): T? {
@@ -58,7 +65,10 @@ internal object AssistantRuntime {
                     field.isAccessible = true
                     field.get(source)
                 }.getOrNull()
-                if (type.isInstance(value)) return type.cast(value)
+                if (type.isInstance(value)) {
+                    if (depth == 0 && type == Context::class.java) contextFieldCache[cls] = field
+                    return type.cast(value)
+                }
                 if (field.name == "this$0") {
                     findFieldValue(value, type, depth + 1)?.let { return it }
                 }

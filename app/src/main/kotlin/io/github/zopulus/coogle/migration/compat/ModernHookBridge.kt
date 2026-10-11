@@ -9,6 +9,29 @@ import java.lang.reflect.Executable
  * the API 102 interceptor chain.
  */
 internal object ModernHookBridge {
+    private val installingHandles = ThreadLocal<MutableList<XposedInterface.HookHandle>>()
+
+    /** Roll back an incomplete group; bookkeeping runs only during installation. */
+    fun <T> atomic(block: () -> T): T {
+        val parent = installingHandles.get()
+        val handles = mutableListOf<XposedInterface.HookHandle>()
+        installingHandles.set(handles)
+        try {
+            val result = block()
+            parent?.addAll(handles)
+            return result
+        } catch (error: Throwable) {
+            handles.asReversed().forEach { handle ->
+                runCatching { handle.unhook() }.exceptionOrNull()?.let { failure ->
+                    if (failure !== error) error.addSuppressed(failure)
+                }
+            }
+            throw error
+        } finally {
+            if (parent == null) installingHandles.remove() else installingHandles.set(parent)
+        }
+    }
+
     fun hookMethod(
         executable: Executable,
         callback: ModernMethodHook,
@@ -19,25 +42,30 @@ internal object ModernHookBridge {
             .hook(executable)
             .setExceptionMode(XposedInterface.ExceptionMode.PROTECTIVE)
             .intercept { chain -> intercept(chain, callback) }
+            .also { installingHandles.get()?.add(it) }
     }
 
     fun hookAllMethods(
         hookClass: Class<*>,
         methodName: String,
         callback: ModernMethodHook,
-    ): Set<XposedInterface.HookHandle> = hookClass.declaredMethods
-        .asSequence()
-        .filter { it.name == methodName }
-        .map { hookMethod(it, callback) }
-        .toSet()
+    ): Set<XposedInterface.HookHandle> = atomic {
+        hookClass.declaredMethods
+            .asSequence()
+            .filter { it.name == methodName }
+            .map { hookMethod(it, callback) }
+            .toSet()
+    }
 
     fun hookAllConstructors(
         hookClass: Class<*>,
         callback: ModernMethodHook,
-    ): Set<XposedInterface.HookHandle> = hookClass.declaredConstructors
-        .asSequence()
-        .map { hookMethod(it, callback) }
-        .toSet()
+    ): Set<XposedInterface.HookHandle> = atomic {
+        hookClass.declaredConstructors
+            .asSequence()
+            .map { hookMethod(it, callback) }
+            .toSet()
+    }
 
     private fun intercept(
         chain: XposedInterface.Chain,

@@ -1,6 +1,7 @@
 // Derived from MiToverG422/ONextBox, commit 1ce6ad3559c9c6ba33f8d8179b1ede55198961e2. GPL-3.0. See LICENSE and NOTICE.txt.
 package io.github.zopulus.coogle.migration.compat
 
+import io.github.libxposed.api.XposedInterface
 import java.lang.reflect.Field
 import java.lang.reflect.Method
 import java.lang.reflect.Modifier
@@ -44,14 +45,11 @@ internal object ModernReflect {
         targetClass: Class<*>,
         methodName: String,
         vararg parameterTypesAndCallback: Any?,
-    ): XposedInterfaceHandle {
+    ): XposedInterface.HookHandle {
         val request = parseHookRequest(parameterTypesAndCallback, targetClass.classLoader)
         val method = findMethodExact(targetClass, methodName, request.parameterTypes)
-        return XposedInterfaceHandle(ModernHookBridge.hookMethod(method, request.callback))
+        return ModernHookBridge.hookMethod(method, request.callback)
     }
-
-    /** Keeps the framework handle opaque to feature code. */
-    internal class XposedInterfaceHandle internal constructor(internal val value: Any)
 
     private data class HookRequest(
         val parameterTypes: Array<Class<*>>,

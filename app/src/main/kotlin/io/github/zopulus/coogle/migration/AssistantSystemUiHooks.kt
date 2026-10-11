@@ -2,6 +2,7 @@
 package io.github.zopulus.coogle.migration
 
 import android.app.Application
+import android.app.ActivityManager
 import android.content.Context
 import android.os.Bundle
 import android.provider.Settings
@@ -9,7 +10,6 @@ import io.github.zopulus.coogle.migration.compat.ModernHookBridge as XposedBridg
 import io.github.zopulus.coogle.migration.compat.ModernMethodHook as XC_MethodHook
 import io.github.zopulus.coogle.migration.compat.ModernReflect as XposedHelpers
 import java.util.ArrayDeque
-import io.github.zopulus.coogle.migration.AssistantHooker.hook
 import io.github.zopulus.coogle.migration.AssistantFeatureHooks.hookNativeAssistantFeatureRoute
 import io.github.zopulus.coogle.migration.AssistantFeatureHooks.hookGoogleAssistantAppFeature
 import io.github.zopulus.coogle.migration.AssistantFeatureHooks.hookContextualSearchSystemFeature
@@ -47,7 +47,6 @@ internal object AssistantSystemUiHooks {
         if (nativeCircleEnabled) {
             hookContextualSearchSystemFeature(SYSTEM_UI_PACKAGE, classLoader)
             hookNativeCircleSystemUi(classLoader)
-            hookSystemUiCircleToSearchInterceptor(classLoader)
         }
         hookNativeAssistantSystemUiGate(classLoader)
     }
@@ -151,6 +150,8 @@ internal object AssistantSystemUiHooks {
             val key = "systemui:native-assistant-route-scope"
             if (installedHooks.add(key)) {
                 runCatching {
+                    val activityManager = XposedHelpers.findField(assistManagerClass, "mActivityManager")
+                    require(ActivityManager::class.java.isAssignableFrom(activityManager.type))
                     XposedBridge.hookAllMethods(
                         assistManagerClass,
                         "startAssist\$1",
@@ -164,6 +165,18 @@ internal object AssistantSystemUiHooks {
                                 nativeAssistantRouteDepth.set(
                                     (nativeAssistantRouteDepth.get() ?: 0) + 1,
                                 )
+                                val bundle = param.args.firstOrNull() as? Bundle ?: return
+                                val type = bundle.getInt("invocation_type", 0)
+                                if (type != INVOCATION_TYPE_CIRCLE_TO_SEARCH &&
+                                    type != INVOCATION_TYPE_CIRCLE_TO_SEARCH_ALTERNATE) return
+                                val manager = param.thisObject ?: return
+                                val activity = activityManager.get(manager) as? ActivityManager ?: return
+                                // Route every circle request before the assistant picker/metrics path.
+                                // Keep native recognition, animation and lock-task restrictions intact.
+                                if (activity.lockTaskModeState == 0 &&
+                                    triggerCircleToSearchC17()) {
+                                    param.result = null
+                                }
                             }
 
                             override fun afterHookedMethod(param: MethodHookParam) {
@@ -230,47 +243,10 @@ internal object AssistantSystemUiHooks {
             else -> false
         }
     }
-    private fun hookSystemUiCircleToSearchInterceptor(classLoader: ClassLoader) {
-        val managerClass = XposedHelpers.findClassIfExists(
-            "com.android.systemui.navigationbar.otherbusiness.circlesearch." +
-                "OplusCircleToSearchManagerEx",
-            classLoader,
-        ) ?: return
-        val key = "systemui:native-circle-interceptor"
-        if (!installedHooks.add(key)) return
-        runCatching {
-            XposedBridge.hookAllMethods(
-                managerClass,
-                "interceptStartAssistInternal",
-                object : XC_MethodHook() {
-                    override fun beforeHookedMethod(param: MethodHookParam) {
-                        if (!LspConfig.isAssistantNativeCircleEnabledXposed()) return
-                        val context = findContext(param.thisObject) ?: systemContext
-                        if (!isGestureCircleToSearchEnabled(context)) return
-                        val bundle = param.args.firstOrNull() as? Bundle ?: return
-                        val invocationType = bundle.getInt("invocation_type", 0)
-                        if (invocationType != INVOCATION_TYPE_CIRCLE_TO_SEARCH &&
-                            invocationType != INVOCATION_TYPE_CIRCLE_TO_SEARCH_ALTERNATE
-                        ) return
-
-                        val triggered = triggerCircleToSearchC17()
-                        log(
-                            "C17 contextual-search interception for invocation type " +
-                                "$invocationType: $triggered",
-                        )
-                        if (triggered) {
-                            param.result = true
-                        }
-                    }
-                },
-            )
-            log("Hooked the C17 SystemUI contextual-search interceptor")
-        }.onFailure {
-            installedHooks.remove(key)
-            log("Failed to hook the C17 SystemUI contextual-search interceptor", it)
-        }
-    }
     private fun hookNativeCircleSystemUi(classLoader: ClassLoader) {
+        VisibleCircleGestureHooks.install(classLoader) {
+            triggerCircleToSearchC17()
+        }
         val customizeClass = XposedHelpers.findClassIfExists(
             "com.oplusos.systemui.common.feature.CustomizeFeatureOption",
             classLoader,
@@ -308,24 +284,20 @@ internal object AssistantSystemUiHooks {
             }
         }
 
-        // On a phone with the normal visible gesture handle, C17's launcher CUI consumer only
-        // owns touch interception/animation. SystemUI's HomeHandleTouchEvent still owns the
-        // actual long-press recognition. Keep that stock recognizer alive and replace only its
-        // domestic Breeno destination with the same invocation_type=8 AssistManager route used
-        // by the international launcher branch. Either business can be selected by C17 at
-        // runtime depending on the OCR compatibility metadata, so cover both implementations.
+        // Suppress domestic actions when the independent listener owns the long press.
+        // Otherwise retain both native business callbacks as contextual-search fallbacks;
+        // C17 selects between them using the OCR compatibility metadata.
         listOf(
             "com.oplus.systemui.navigationbar.gesture.otherbusiness.SpeedChassistMainBusiness",
             "com.oplus.systemui.navigationbar.ocrscreen.OplusOcrScreenBusiness",
         ).forEach { className ->
             val businessClass = XposedHelpers.findClassIfExists(className, classLoader)
                 ?: return@forEach
-            hookNativeCircleSystemUiBusiness(businessClass, classLoader)
+            hookNativeCircleSystemUiBusiness(businessClass)
         }
     }
     private fun hookNativeCircleSystemUiBusiness(
         businessClass: Class<*>,
-        classLoader: ClassLoader,
     ) {
         val key = "systemui:native-circle-business:${businessClass.name}"
         if (!installedHooks.add(key)) return
@@ -336,13 +308,14 @@ internal object AssistantSystemUiHooks {
                 object : XC_MethodHook() {
                     override fun beforeHookedMethod(param: MethodHookParam) {
                         if (!LspConfig.isAssistantNativeCircleEnabledXposed()) return
-                        val context = findContext(param.thisObject) ?: systemContext
+                        val context = systemContext ?: findContext(param.thisObject)
                         if (!isGestureCircleToSearchEnabled(context)) return
-                        if (dispatchSystemUiNativeAssistant(
-                                classLoader = classLoader,
-                                invocationType = INVOCATION_TYPE_CIRCLE_TO_SEARCH,
-                            )
-                        ) {
+                        if (VisibleCircleGestureHooks.isRegistered()) {
+                            // The independent EXP-style listener owns this event now.
+                            param.result = null
+                            return
+                        }
+                        if (triggerCircleToSearchC17()) {
                             // Recognition, pointer pilfering and the launcher's press animation
                             // have already run in C17. Suppress only the final Breeno/OCR action.
                             param.result = null
@@ -355,42 +328,6 @@ internal object AssistantSystemUiHooks {
             installedHooks.remove(key)
             log("Failed to hook C17 gesture-bar recognition: ${businessClass.name}", it)
         }
-    }
-    private fun dispatchSystemUiNativeAssistant(
-        classLoader: ClassLoader,
-        invocationType: Int,
-    ): Boolean {
-        return runCatching {
-            val dependencyClass = XposedHelpers.findClass(
-                "com.android.systemui.Dependency",
-                classLoader,
-            )
-            val assistManagerClass = XposedHelpers.findClass(
-                "com.android.systemui.assist.AssistManager",
-                classLoader,
-            )
-            val dependency = readStaticField(dependencyClass, "sDependency")
-                ?: error("SystemUI Dependency is unavailable")
-            val assistManager = XposedHelpers.callMethod(
-                dependency,
-                "getDependencyInner",
-                assistManagerClass,
-            ) ?: error("SystemUI AssistManager is unavailable")
-            val bundle = Bundle().apply {
-                putInt("invocation_type", invocationType)
-            }
-            XposedHelpers.callMethod(assistManager, "startAssist\$1", bundle)
-            log("Forwarded gesture-bar invocation type $invocationType inside SystemUI")
-            true
-        }.onFailure {
-            log("Failed to forward the gesture-bar invocation inside SystemUI", it)
-        }.getOrDefault(false)
-    }
-    /** SystemUI dependency singleton access. */
-    private fun readStaticField(targetClass: Class<*>, fieldName: String): Any? {
-        val field = targetClass.getDeclaredField(fieldName)
-        field.isAccessible = true
-        return field.get(null)
     }
     private fun hookSystemUiAttachRetry() {
         val key = "systemui:application-attach"
