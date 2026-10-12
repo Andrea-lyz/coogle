@@ -22,8 +22,6 @@
 
 Google 固化与圈定即搜实时翻译配置默认开启，语音组件由 APK 开关同步控制；关闭 Hey Google 后，重启即停止挂载语音注册/DSP 配置，并跳过模型初始化。首次安装或从旧菜单版升级时，语音支持默认关闭，避免未与 APK 开关同步就执行初始化。
 
-更新时请同时更新 APK 和附属模块，并重启手机。[兼容说明与已知限制](COMPATIBILITY.md)。
-
 ## 致谢
 
 部分代码参考 [ONextBox](https://github.com/MiToverG422/ONextBox) 和 [LuckyTool](https://github.com/luckyzyx/LuckyTool)。
