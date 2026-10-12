@@ -15,10 +15,7 @@ object MigrationEntry {
         }
         if (packageName == "com.android.systemui" && FeatureConfig.enabled(FeaturePolicy.QUICK_ENTRIES))
             NativeQuickEntryHooks.install(loader)
-        if (packageName == "com.google.android.apps.walletnfcrel") {
-            if (FeatureConfig.enabled(FeaturePolicy.WALLET)) WalletPowerHooks.hookPackage(packageName, loader)
-            return
-        }
+        if (packageName == "com.google.android.apps.walletnfcrel") return
         if (packageName == "com.google.android.googlequicksearchbox") {
             OkGoogleHotwordCompatibilityHooker.hookGoogleApp(loader)
         } else {

@@ -36,7 +36,12 @@ public final class CoogleModule extends XposedModule {
                 || "com.google.android.googlequicksearchbox".equals(packageName)) {
             MigrationEntry.attach(this);
             MigrationEntry.hookPackage(packageName, param.getClassLoader());
-            if ("com.google.android.googlequicksearchbox".equals(packageName) && FeatureConfig.enabled(FeaturePolicy.LENS)) LensHooks.install(hooks, param.getClassLoader());
+            if ("com.google.android.apps.walletnfcrel".equals(packageName))
+                WalletPreviewHooks.install(hooks, param.getClassLoader(), param.getApplicationInfo().sourceDir,
+                        param.getApplicationInfo().dataDir);
+            if ("com.google.android.googlequicksearchbox".equals(packageName))
+                GoogleAppHooks.install(hooks, param.getClassLoader(), param.getApplicationInfo().sourceDir,
+                        param.getApplicationInfo().dataDir);
             if ("com.android.settings".equals(packageName) && FeatureConfig.enabled(FeaturePolicy.NAVIGATION)) SettingsHooks.installSettingsHiddenSupport(hooks, param.getClassLoader());
         }
         if ("com.android.launcher".equals(packageName)) navigation.install(param.getClassLoader());

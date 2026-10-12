@@ -5,6 +5,7 @@
 ## 功能
 
 - **Hey Google**：补全国行系统的 Google 语音唤醒支持。
+- **实时翻译**：在圈定即搜中点击翻译，滚动时持续翻译；默认关闭，开启后需重载 Google App。Google App 版本不兼容时保留原行为，尚待 ColorOS 真机验证。
 - **Google 智能镜头**：补全 Google 智能镜头功能入口。
 - **系统导航方式**：补全设置中的导航选项，支持圈定即搜和左/右下角向内滑动呼出数字助理。
 - **Google 搜索框**：启用桌面底部 Google 搜索框。
@@ -14,6 +15,12 @@
 - **移除 GMS 对国行的使用限制**。
 - **设置底部显示 Google 服务**。
 
+## 定位与兼容性
+
+Google 智能镜头、圈定即搜实时翻译和钱包预览中的混淆代码使用 DexKit 特征与调用关系定位；明确名称的系统入口保留反射方式。定位结果按作用域应用 APK 缓存，更新后重新查找；目标缺失或歧义时保留原行为。新动态定位尚待真机验证，不保证所有 Google App / 钱包版本适配。
+
+Hey Google 的系统方法、模型校验和附属模块配置保持原实现；此次无需更新附属模块。
+
 ## Coogle 附属模块
 
 整合 Google 系统应用固化、Hotword 注册组件和 DSP 唤醒支持。
@@ -21,6 +28,8 @@
 开启 Hey Google 时自动检查附属模块。
 
 ## 致谢
+
+实时翻译参考 [XGoogle](https://github.com/Leekin2/XGoogle)。
 
 部分代码参考 [ONextBox](https://github.com/MiToverG422/ONextBox) 和 [LuckyTool](https://github.com/luckyzyx/LuckyTool)。
 

@@ -31,6 +31,7 @@ dependencies {
     implementation 'androidx.compose.material3:material3:1.5.0-alpha28'
     implementation 'androidx.compose.material:material-icons-extended:1.7.8'
     implementation 'androidx.core:core-ktx:1.17.0'
+    implementation 'org.luckypray:dexkit:2.3.0'
 }
 
 // Exercise the native gesture listener against a JVM controller boundary.
@@ -74,7 +75,7 @@ def hotwordTestClasses = layout.buildDirectory.dir('hotword-tests')
 def lifecycleTestClasses = layout.buildDirectory.dir('hook-lifecycle-tests')
 tasks.register('compileHookLifecycleTests', JavaCompile) {
     dependsOn 'compileReleaseJavaWithJavac'
-    source files('../tests/SignalModelHookLifecycleTest.java', '../tests/RoleReconciliationTest.java', '../tests/HookInstallRollbackTest.java', '../tests/HiddenCircleNoAssistantTest.java', '../tests/FeatureQueryTest.java', '../tests/ContextBindingCacheTest.java') +
+    source files('../tests/DexTargetCacheTest.java', '../tests/LensBindingTest.java', '../tests/lens-stubs/com/google/apps/tiktok/account/AccountId.java', '../tests/WalletPreviewBindingTest.java', '../tests/DynamicGoogleHookTest.java', '../tests/SignalModelHookLifecycleTest.java', '../tests/RoleReconciliationTest.java', '../tests/HookInstallRollbackTest.java', '../tests/HiddenCircleNoAssistantTest.java', '../tests/FeatureQueryTest.java', '../tests/ContextBindingCacheTest.java') +
         fileTree('../tests/lifecycle-stubs') { include '**/*.java' } +
         fileTree('../tests/contextual-stubs') { include 'android/**/*.java' }
     classpath = files(layout.buildDirectory.dir('intermediates/built_in_kotlinc/release/compileReleaseKotlin/classes'),
@@ -82,13 +83,15 @@ tasks.register('compileHookLifecycleTests', JavaCompile) {
         files(androidComponents.sdkComponents.bootClasspath) +
         files({ configurations.releaseRuntimeClasspath.findAll { it.name.startsWith('kotlin-stdlib-') && it.name.endsWith('.jar') } }) +
         files({ zipTree(configurations.releaseCompileClasspath.find { it.name == 'api-102.0.0.aar' })
+            .matching { include 'classes.jar' }.singleFile }) +
+        files({ zipTree(configurations.releaseCompileClasspath.find { it.name == 'dexkit-2.3.0.aar' })
             .matching { include 'classes.jar' }.singleFile })
     destinationDirectory = lifecycleTestClasses
     sourceCompatibility = '17'
     targetCompatibility = '17'
     options.encoding = 'UTF-8'
 }
-['SignalModelHookLifecycleTest', 'RoleReconciliationTest', 'HookInstallRollbackTest', 'HiddenCircleNoAssistantTest', 'FeatureQueryTest', 'ContextBindingCacheTest'].each { testName ->
+['DexTargetCacheTest', 'WalletPreviewBindingTest', 'DynamicGoogleHookTest', 'SignalModelHookLifecycleTest', 'RoleReconciliationTest', 'HookInstallRollbackTest', 'HiddenCircleNoAssistantTest', 'FeatureQueryTest', 'ContextBindingCacheTest'].each { testName ->
     tasks.register("test${testName}", JavaExec) {
         dependsOn 'compileHookLifecycleTests'
         classpath = files(lifecycleTestClasses) + tasks.named('compileHookLifecycleTests').get().classpath
@@ -96,7 +99,7 @@ tasks.register('compileHookLifecycleTests', JavaCompile) {
     }
 }
 tasks.register('testHookLifecycle') {
-    dependsOn 'testSignalModelHookLifecycleTest', 'testRoleReconciliationTest', 'testHookInstallRollbackTest', 'testHiddenCircleNoAssistantTest', 'testFeatureQueryTest', 'testContextBindingCacheTest'
+    dependsOn 'testDexTargetCacheTest', 'testWalletPreviewBindingTest', 'testDynamicGoogleHookTest', 'testSignalModelHookLifecycleTest', 'testRoleReconciliationTest', 'testHookInstallRollbackTest', 'testHiddenCircleNoAssistantTest', 'testFeatureQueryTest', 'testContextBindingCacheTest'
 }
 tasks.register('compileHotwordUidTest', JavaCompile) {
     source files('../tests/HotwordUidTest.java') + fileTree('../tests/hotword-stubs') { include '**/*.java' }
