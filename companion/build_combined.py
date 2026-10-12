@@ -46,6 +46,8 @@ ui_print "Google system app, enrollment and DSP support combined. Reboot require
     return files
 
 def build():
+    from build_contextual_overlay import build as build_overlay
+    build_overlay()
     files = payload()
     OUT.parent.mkdir(parents=True, exist_ok=True)
     with zipfile.ZipFile(OUT, 'w', zipfile.ZIP_DEFLATED) as archive:
