@@ -29,16 +29,15 @@ public final class CoogleModule extends XposedModule {
         if (!SystemCompatibility.isColorOs17()) return;
         if ("com.android.launcher".equals(packageName)) SearchBarHooks.install(hooks, param.getClassLoader());
         if ("com.android.settings".equals(packageName)) SettingsHooks.installGoogleSettingsEntry(hooks, param.getClassLoader());
+        if ("com.google.android.apps.walletnfcrel".equals(packageName))
+            WalletPreviewHooks.install(hooks, param.getClassLoader(), param.getApplicationInfo().sourceDir,
+                    param.getApplicationInfo().dataDir);
         if ("com.android.systemui".equals(packageName) || "com.android.settings".equals(packageName)
                 || "com.android.launcher".equals(packageName)
                 || "com.oplus.wallpapers".equals(packageName)
-                || "com.google.android.apps.walletnfcrel".equals(packageName)
                 || "com.google.android.googlequicksearchbox".equals(packageName)) {
             MigrationEntry.attach(this);
             MigrationEntry.hookPackage(packageName, param.getClassLoader());
-            if ("com.google.android.apps.walletnfcrel".equals(packageName))
-                WalletPreviewHooks.install(hooks, param.getClassLoader(), param.getApplicationInfo().sourceDir,
-                        param.getApplicationInfo().dataDir);
             if ("com.google.android.googlequicksearchbox".equals(packageName))
                 GoogleAppHooks.install(hooks, param.getClassLoader(), param.getApplicationInfo().sourceDir,
                         param.getApplicationInfo().dataDir);
