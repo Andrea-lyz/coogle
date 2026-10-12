@@ -228,6 +228,7 @@ private fun CoogleDialog(state: CoogleState, onConfirm: () -> Unit, onDismiss: (
         DialogKind.STATUS -> "模块状态"
         DialogKind.INSTALL -> "安装附属模块"
         DialogKind.DISABLED -> "附属模块已禁用"
+        DialogKind.SUPPORT_OFF -> "Hey Google 支持已关闭"
         DialogKind.INSTALLED -> "安装完成"
         DialogKind.HIDE_ICON -> "隐藏桌面图标？"
         else -> "操作未完成"
@@ -236,6 +237,7 @@ private fun CoogleDialog(state: CoogleState, onConfirm: () -> Unit, onDismiss: (
         DialogKind.STATUS -> "在 LSPosed 中启用 Coogle 并勾选推荐作用域。更改设置后，重启对应作用域生效。\n\n系统兼容性仅检查 ColorOS 17。"
         DialogKind.INSTALL -> "Hey Google 需要 Coogle 附属模块。安装会请求 Root 授权。\n\n首次安装附属模块后，需要重启手机完成挂载，再在 Google 设置中完成 Voice Match。"
         DialogKind.DISABLED -> "请在 KernelSU 中启用 Coogle 附属模块，然后重新开启 Hey Google。"
+        DialogKind.SUPPORT_OFF -> "请在 KernelSU 中打开 Coogle 附属模块的 Action，启用 Hey Google 支持并重启，然后重新开启此功能。"
         DialogKind.INSTALLED -> "Coogle 附属模块已安装，Hey Google 开关已开启。\n\n请重启手机完成附属模块挂载，再在 Google 设置中完成 Voice Match。"
         DialogKind.HIDE_ICON -> "隐藏后，仍可从 LSPosed 的 Coogle 模块设置入口打开应用。"
         else -> state.dialogText

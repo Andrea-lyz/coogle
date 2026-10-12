@@ -116,6 +116,7 @@ class MainActivity : ComponentActivity() {
                     if (enableAfterCheck) when (installed) {
                         CompanionState.READY, CompanionState.PENDING -> saveSetting(FeaturePolicy.HEY_GOOGLE, true, true)
                         CompanionState.DISABLED -> showDialog(DialogKind.DISABLED)
+                        CompanionState.SUPPORT_OFF -> showDialog(DialogKind.SUPPORT_OFF)
                         else -> showDialog(DialogKind.INSTALL)
                     }
                     else if (!installed.installed && state.features[FeaturePolicy.HEY_GOOGLE] == true)

@@ -1,5 +1,8 @@
 #!/system/bin/sh
 MODDIR=${0%/*}
+. "$MODDIR/features.sh"
+load_features "$MODDIR/applied-features.conf"
+[ "$hey" = 1 ] || exit 0
 # Needed by the original enrollment APKs on this inspected CN firmware.
 # This per-package override leaves foreground-service enforcement for other apps intact.
 for package in com.android.hotwordenrollment.xgoogle com.android.hotwordenrollment.okgoogle; do

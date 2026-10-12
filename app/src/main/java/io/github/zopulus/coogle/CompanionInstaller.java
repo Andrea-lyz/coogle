@@ -13,12 +13,16 @@ public final class CompanionInstaller {
     public static String check() throws Exception {
         String output = run("d="+DIR+"; u=/data/adb/modules_update/coogle_companion; "
                 +"if [ -f \"$u/module.prop\" ]; then "
-                +"if [ -f \"$u/disable\" ] || [ -f \"$u/remove\" ]; then echo DISABLED; else echo PENDING; fi; "
+                +"if [ -f \"$u/disable\" ] || [ -f \"$u/remove\" ]; then echo DISABLED; "
+                +"elif grep -q '^hey=0$' \"$u/features.conf\" 2>/dev/null; then echo SUPPORT_OFF; else echo PENDING; fi; "
                 +"elif [ ! -f \"$d/module.prop\" ]; then echo MISSING; "
                 +"elif [ -f \"$d/disable\" ] || [ -f \"$d/remove\" ]; then echo DISABLED; "
+                +"elif grep -q '^hey=0$' \"$d/features.conf\" 2>/dev/null; then echo SUPPORT_OFF; "
+                +"elif [ -f \"$d/component-error\" ]; then echo DISABLED; "
+                +"elif [ -f \"$d/features.conf\" ] && [ -f \"$d/applied-features.conf\" ] && ! cmp -s \"$d/features.conf\" \"$d/applied-features.conf\"; then echo PENDING; "
                 +"else echo READY; fi",20).trim();
         String state = output.substring(output.lastIndexOf('\n') + 1).trim();
-        if (!java.util.Set.of("MISSING", "DISABLED", "PENDING", "READY").contains(state))
+        if (!java.util.Set.of("MISSING", "DISABLED", "PENDING", "READY", "SUPPORT_OFF").contains(state))
             throw new java.io.IOException("无法读取附属模块状态");
         return state;
     }
