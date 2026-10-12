@@ -17,7 +17,9 @@
 
 ## 定位与兼容性
 
-Google 智能镜头、圈定即搜实时翻译和钱包预览中的混淆代码使用 DexKit 特征与调用关系定位；明确名称的系统入口保留反射方式。定位结果按作用域应用 APK 缓存，更新后重新查找；目标缺失或歧义时保留原行为。新动态定位尚待真机验证，不保证所有 Google App / 钱包版本适配。
+Google 智能镜头和钱包预览中的混淆代码使用 DexKit 特征与调用关系定位；明确名称的系统入口保留反射方式。定位结果按作用域应用 APK 缓存，更新后重新查找；目标缺失或歧义时保留原行为。新动态定位尚待真机验证，不保证所有 Google App / 钱包版本适配。
+
+实时翻译依据国际版一加 13 实机链路，仅在 Google App 内补齐 `CONTEXTUAL_SEARCH_LIVE_TRANSLATE` 能力查询，保留原生资格、来源应用、场景、网络和悬浮窗权限判断；无需 DexKit 扫描该功能，开关更改需重载 Google App。
 
 Hey Google 的系统方法、模型校验和附属模块配置保持原实现；此次无需更新附属模块。
 
@@ -28,8 +30,6 @@ Hey Google 的系统方法、模型校验和附属模块配置保持原实现；
 开启 Hey Google 时自动检查附属模块。
 
 ## 致谢
-
-实时翻译参考 [XGoogle](https://github.com/Leekin2/XGoogle)。
 
 部分代码参考 [ONextBox](https://github.com/MiToverG422/ONextBox) 和 [LuckyTool](https://github.com/luckyzyx/LuckyTool)。
 

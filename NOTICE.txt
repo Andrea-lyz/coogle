@@ -16,7 +16,5 @@ Additional code references: https://github.com/luckyzyx/LuckyTool
 UI reference: https://github.com/LSPosed/LSPosed
 Bundled Google enrollment components remain subject to their original licenses.
 
-LiveTranslateHooks.java derives from Leekin2/XGoogle (GPL-3.0):
-https://github.com/Leekin2/XGoogle
-Source commit: c7f0c6f369a2076d2957ca7a1f63b95f7d784e82.
+Live translation feature exposure follows the native CPH2653 feature_contextualsearch.xml and Google App capability query observed on the reference device. No Google App code is bundled.
 DexKit 2.3.0 by LuckyPray is an Apache-2.0 dependency.

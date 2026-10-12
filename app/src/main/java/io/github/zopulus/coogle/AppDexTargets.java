@@ -68,7 +68,6 @@ final class AppDexTargets implements AutoCloseable {
         }
         List<Method> methods = switch (feature) {
             case FeaturePolicy.LENS -> findLens();
-            case FeaturePolicy.LIVE_TRANSLATE -> findLiveTranslate();
             case FeaturePolicy.WALLET -> findWallet();
             default -> throw new IllegalArgumentException("Unsupported dynamic feature");
         };
@@ -95,8 +94,7 @@ final class AppDexTargets implements AutoCloseable {
             try { return methods.size() == 2 && WalletPreviewBinding.bind(methods.get(0), methods.get(1).getDeclaringClass()) != null; }
             catch (IllegalAccessException invalid) { return false; }
         }
-        LiveTranslateBinding binding = LiveTranslateBinding.bind(methods.get(1).getDeclaringClass());
-        return binding != null && binding.capable.equals(methods.get(0)) && binding.visible.equals(methods.get(1));
+        return false;
     }
 
     private List<Method> findLens() throws ReflectiveOperationException {
@@ -137,18 +135,6 @@ final class AppDexTargets implements AutoCloseable {
             frontier = next;
         }
         return result;
-    }
-
-    private List<Method> findLiveTranslate() throws ReflectiveOperationException {
-        LiveTranslateBinding found = null;
-        for (MethodData method : bridge.findMethod(FindMethod.create().matcher(MethodMatcher.create()
-                .returnType("int").paramCount(0).usingNumbers(271520)))) {
-            LiveTranslateBinding candidate = LiveTranslateBinding.bind(method.getClassInstance(loader));
-            if (candidate == null) continue;
-            if (found != null && !found.visible.equals(candidate.visible)) return List.of();
-            found = candidate;
-        }
-        return found == null ? List.of() : List.of(found.capable, found.visible);
     }
 
     private List<Method> findWallet() throws ReflectiveOperationException {

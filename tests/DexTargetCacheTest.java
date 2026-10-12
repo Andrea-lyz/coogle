@@ -18,16 +18,16 @@ public final class DexTargetCacheTest {
             Properties stored = new Properties();
             stored.setProperty("apk", "1:" + apk + ":" + apk.toFile().lastModified() + ":" + apk.toFile().length());
             stored.setProperty(FeaturePolicy.LENS, new DexMethod(create).serialize() + "\n" + new DexMethod(talk).serialize());
-            stored.setProperty(FeaturePolicy.LIVE_TRANSLATE, "");
+            stored.setProperty(FeaturePolicy.WALLET, "");
             try (var output = Files.newOutputStream(cache)) { stored.store(output, "fixture"); }
             try (var targets = new AppDexTargets(DexTargetCacheTest.class.getClassLoader(), apk.toString(), dir.toString())) {
                 var methods = targets.resolve(FeaturePolicy.LENS);
                 if (!methods.equals(java.util.List.of(create, talk))) throw new AssertionError("Cached methods changed");
-                if (!targets.resolve(FeaturePolicy.LIVE_TRANSLATE).isEmpty()) throw new AssertionError("Negative cache ignored");
+                if (!targets.resolve(FeaturePolicy.WALLET).isEmpty()) throw new AssertionError("Negative cache ignored");
             }
             Files.write(apk, new byte[]{1,2});
             try (var targets = new AppDexTargets(DexTargetCacheTest.class.getClassLoader(), apk.toString(), dir.toString())) {
-                try { targets.resolve(FeaturePolicy.LIVE_TRANSLATE); throw new AssertionError("APK update retained negative cache"); }
+                try { targets.resolve(FeaturePolicy.WALLET); throw new AssertionError("APK update retained negative cache"); }
                 catch (UnsatisfiedLinkError expected) { /* Scanner was attempted; no native library in this test. */ }
             }
             System.out.println("PASS: positive/negative caches skip native scanning; APK update invalidates cached targets");
