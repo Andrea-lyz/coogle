@@ -11,26 +11,38 @@ import java.util.concurrent.TimeUnit;
 public final class CompanionInstaller {
     private static final String DIR="/data/adb/modules/coogle_companion";
     public static String check() throws Exception {
-        String output = run("d="+DIR+"; u=/data/adb/modules_update/coogle_companion; "
-                +"if [ -f \"$u/module.prop\" ]; then "
-                +"if [ -f \"$u/disable\" ] || [ -f \"$u/remove\" ]; then echo DISABLED; "
-                +"elif grep -q '^hey=0$' \"$u/features.conf\" 2>/dev/null; then echo SUPPORT_OFF; else echo PENDING; fi; "
-                +"elif [ ! -f \"$d/module.prop\" ]; then echo MISSING; "
-                +"elif [ -f \"$d/disable\" ] || [ -f \"$d/remove\" ]; then echo DISABLED; "
-                +"elif grep -q '^hey=0$' \"$d/features.conf\" 2>/dev/null; then echo SUPPORT_OFF; "
-                +"elif [ -f \"$d/component-error\" ]; then echo DISABLED; "
-                +"elif [ -f \"$d/features.conf\" ] && [ -f \"$d/applied-features.conf\" ] && ! cmp -s \"$d/features.conf\" \"$d/applied-features.conf\"; then echo PENDING; "
-                +"else echo READY; fi",20).trim();
+        return state(run(statusCommand(),20));
+    }
+    public static String setHeyGoogle(boolean enabled) throws Exception {
+        return state(run(controlCommand(enabled),20));
+    }
+    static String controlCommand(boolean enabled) {
+        return "for d in " + DIR + " /data/adb/modules_update/coogle_companion; do "
+                + "if [ -f \"$d/features.sh\" ] && grep -q '^controlVersion=1$' \"$d/module.prop\" 2>/dev/null; then "
+                + "printf 'hey=" + (enabled ? "1" : "0") + "\\n' > \"$d/features.conf.tmp\" && "
+                + "chmod 0600 \"$d/features.conf.tmp\" && mv -f \"$d/features.conf.tmp\" \"$d/features.conf\" || exit 1; fi; done; "
+                + statusCommand();
+    }
+    private static String statusCommand() {
+        return "d="+DIR+"; pending=0; if [ -f /data/adb/modules_update/coogle_companion/module.prop ]; then "
+                + "d=/data/adb/modules_update/coogle_companion; pending=1; fi; "
+                + "if [ ! -f \"$d/module.prop\" ]; then echo MISSING; "
+                + "elif [ -f \"$d/disable\" ] || [ -f \"$d/remove\" ] || [ -f \"$d/component-error\" ]; then echo DISABLED; "
+                + "elif ! grep -q '^controlVersion=1$' \"$d/module.prop\" || [ ! -f \"$d/features.sh\" ]; then echo UPDATE_REQUIRED; "
+                + "elif [ \"$pending\" = 1 ] || [ ! -f \"$d/applied-features.conf\" ] || "
+                + "! cmp -s \"$d/features.conf\" \"$d/applied-features.conf\"; then echo PENDING; else echo READY; fi";
+    }
+    private static String state(String output) throws java.io.IOException {
+        output = output.trim();
         String state = output.substring(output.lastIndexOf('\n') + 1).trim();
-        if (!java.util.Set.of("MISSING", "DISABLED", "PENDING", "READY", "SUPPORT_OFF").contains(state))
+        if (!java.util.Set.of("MISSING", "DISABLED", "PENDING", "READY", "UPDATE_REQUIRED").contains(state))
             throw new java.io.IOException("无法读取附属模块状态");
         return state;
     }
     public static void install(Context context) throws Exception {
         Path zip=context.getCacheDir().toPath().resolve("coogle-companion.zip");
         try (InputStream source=context.getAssets().open("coogle-companion.zip")) { Files.copy(source,zip,java.nio.file.StandardCopyOption.REPLACE_EXISTING); }
-        // The in-app installer has no visible terminal for volume-key prompts.
-        run("COOGLE_NONINTERACTIVE=1 /data/adb/ksu/bin/ksud module install '"+zip.toString().replace("'","'\\''")+"'",120);
+        run("/data/adb/ksu/bin/ksud module install '"+zip.toString().replace("'","'\\''")+"'",120);
     }
     private static String run(String command,int timeout) throws Exception {
         Process process=new ProcessBuilder("su","-c",command).redirectErrorStream(true).start();

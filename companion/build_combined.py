@@ -24,7 +24,7 @@ def payload():
     for name in ('patch-audio.awk', 'prepare-audio.sh', 'status.sh', 'hotword-status.awk'):
         path = ROOT/'integration'/name
         files[name] = path.read_bytes().replace(b'\r\n', b'\n')
-    for name in ('setup.sh', 'uninstall.sh', 'features.sh', 'post-fs-data.sh', 'action.sh'):
+    for name in ('setup.sh', 'uninstall.sh', 'features.sh', 'post-fs-data.sh'):
         files[name] = (ROOT/'module'/name).read_bytes().replace(b'\r\n', b'\n')
     files['boot-completed.sh'] = b'''#!/system/bin/sh
 MODDIR=${0%/*}
@@ -35,25 +35,23 @@ sleep 30
 '''
     installer = '#!/system/bin/sh\n' + systemizer_install + '''
 set_perm_recursive "$MODPATH/system" 0 0 0755 0644
-for script in boot-completed.sh setup.sh uninstall.sh prepare-audio.sh status.sh features.sh post-fs-data.sh action.sh; do
+for script in boot-completed.sh setup.sh uninstall.sh prepare-audio.sh status.sh features.sh post-fs-data.sh; do
     set_perm "$MODPATH/$script" 0 0 0755
 done
 /system/bin/sh "$MODPATH/prepare-audio.sh"
 . "$MODPATH/features.sh"
-load_features /data/adb/modules/coogle_companion/features.conf
-save_features "$MODPATH/features.conf" || abort "Cannot save component choices"
-if [ "$COOGLE_NONINTERACTIVE" != 1 ]; then
-    ui_print "请选择支持组件：音量＋开启，音量－关闭；最后保存或取消。"
-    /system/bin/sh "$MODPATH/action.sh" || ui_print "未保存新选择，保留原配置继续安装。"
+load_features /dev/null
+if grep -q '^controlVersion=1$' /data/adb/modules/coogle_companion/module.prop 2>/dev/null; then
+    load_features /data/adb/modules/coogle_companion/features.conf
 fi
-load_features "$MODPATH/features.conf"
+save_features "$MODPATH/features.conf" || abort "Cannot save component choices"
 MODDIR=$MODPATH
 apply_features || abort "Cannot prepare selected components"
 ui_print "Google system app, enrollment and DSP support combined. Reboot required."
-ui_print "Action: choose Google system app, Hey Google and live translation support."
+ui_print "Hey Google follows the Coogle switch; live translation enables automatically after reboot."
 '''
     files['customize.sh'] = installer.replace('\r\n', '\n').encode()
-    files['module.prop'] = 'id=coogle_companion\nname=Coogle 附属模块\nversion=1.2\nversionCode=120\nauthor=zopulus\ndescription=[⏳待重启检测]\n'.encode()
+    files['module.prop'] = 'id=coogle_companion\nname=Coogle 附属模块\nversion=1.2\nversionCode=120\ncontrolVersion=1\nauthor=zopulus\ndescription=[⏳待重启检测]\n'.encode()
     return files
 
 def build():

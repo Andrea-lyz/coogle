@@ -7,13 +7,13 @@ enum class CompanionState(val summary: String, val installed: Boolean = false) {
     CHECKING("附属模块：正在检测安装状态…"),
     MISSING("附属模块：未安装"),
     DISABLED("附属模块：已禁用"),
-    SUPPORT_OFF("附属模块：Hey Google 支持已关闭"),
+    UPDATE_REQUIRED("附属模块：需要更新"),
     READY("附属模块：已安装并启用", true),
     PENDING("附属模块：已安装，待重启完成挂载", true),
     INSTALLING("附属模块：正在安装…")
 }
 
-enum class DialogKind { NONE, STATUS, INSTALL, DISABLED, SUPPORT_OFF, INSTALLED, HIDE_ICON, ERROR }
+enum class DialogKind { NONE, STATUS, INSTALL, DISABLED, INSTALLED, HIDE_ICON, ERROR }
 
 data class CoogleState(
     val connected: Boolean = false,
@@ -28,6 +28,6 @@ data class CoogleState(
     companion object {
         val featureKeys = listOf(FeaturePolicy.HEY_GOOGLE, FeaturePolicy.GMS, FeaturePolicy.GOOGLE_ENTRY,
             FeaturePolicy.NAVIGATION, FeaturePolicy.SEARCH_BAR, FeaturePolicy.LENS,
-            FeaturePolicy.WALLET, FeaturePolicy.QUICK_ENTRIES, FeaturePolicy.LIVE_TRANSLATE)
+            FeaturePolicy.WALLET, FeaturePolicy.QUICK_ENTRIES)
     }
 }

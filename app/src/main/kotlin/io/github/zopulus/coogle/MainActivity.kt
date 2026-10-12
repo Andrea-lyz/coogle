@@ -83,16 +83,27 @@ class MainActivity : ComponentActivity() {
         val settings = preferences ?: return
         if (!savingKeys.add(key)) return
         worker.execute {
+            var supportState: CompanionState? = null
             val result = runCatching {
+                val previous = settings.getBoolean(key, FeaturePolicy.defaultValue(key))
+                if (key == FeaturePolicy.HEY_GOOGLE) {
+                    supportState = CompanionState.valueOf(CompanionInstaller.setHeyGoogle(enabled))
+                    if (enabled && !supportState.installed)
+                        throw IOException("请先安装并启用新版附属模块。")
+                }
                 val editor = settings.edit().putBoolean(key, enabled)
                 companionInstalled?.let { editor.putBoolean("companion_ready", it) }
-                if (!editor.commit()) throw IOException("配置未保存，请检查 LSPosed 连接。")
+                if (!editor.commit()) {
+                    if (key == FeaturePolicy.HEY_GOOGLE) runCatching { CompanionInstaller.setHeyGoogle(previous) }
+                    throw IOException("配置未保存，请检查 LSPosed 连接。")
+                }
             }
             runOnUiThread {
                 if (isDestroyed) return@runOnUiThread
                 savingKeys.remove(key)
                 result.onSuccess {
-                    state = state.copy(features = state.features + (key to enabled))
+                    state = state.copy(features = state.features + (key to enabled),
+                        companion = supportState ?: state.companion)
                 }.onFailure { error(it.message ?: "配置保存失败") }
             }
         }
@@ -105,8 +116,14 @@ class MainActivity : ComponentActivity() {
             (lastCheck != null && SystemClock.elapsedRealtime() - lastCheck < 30_000L))) return
         companionCheckedThisResume = true
         state = state.copy(busy = true, companion = CompanionState.CHECKING)
+        val requestedHey = state.features[FeaturePolicy.HEY_GOOGLE] == true
         worker.execute {
-            val result = runCatching { CompanionState.valueOf(CompanionInstaller.check()) }
+            val result = runCatching {
+                val status = CompanionState.valueOf(CompanionInstaller.check())
+                if (!enableAfterCheck && status.installed)
+                    CompanionState.valueOf(CompanionInstaller.setHeyGoogle(requestedHey))
+                else status
+            }
             runOnUiThread {
                 if (isDestroyed) return@runOnUiThread
                 state = state.copy(busy = false)
@@ -116,10 +133,10 @@ class MainActivity : ComponentActivity() {
                     if (enableAfterCheck) when (installed) {
                         CompanionState.READY, CompanionState.PENDING -> saveSetting(FeaturePolicy.HEY_GOOGLE, true, true)
                         CompanionState.DISABLED -> showDialog(DialogKind.DISABLED)
-                        CompanionState.SUPPORT_OFF -> showDialog(DialogKind.SUPPORT_OFF)
                         else -> showDialog(DialogKind.INSTALL)
                     }
-                    else if (!installed.installed && state.features[FeaturePolicy.HEY_GOOGLE] == true)
+                    else if (installed in setOf(CompanionState.MISSING, CompanionState.DISABLED) &&
+                        state.features[FeaturePolicy.HEY_GOOGLE] == true)
                         saveSetting(FeaturePolicy.HEY_GOOGLE, false, false)
                 }.onFailure {
                     companionCheckedAt = null
@@ -137,6 +154,7 @@ class MainActivity : ComponentActivity() {
         worker.execute {
             val result = runCatching {
                 CompanionInstaller.install(this)
+                CompanionInstaller.setHeyGoogle(true)
                 if (!settings.edit().putBoolean("companion_ready", true).putBoolean(FeaturePolicy.HEY_GOOGLE, true).commit())
                     throw IOException("附属模块已安装，但配置保存失败，请重新开启 Hey Google。")
             }

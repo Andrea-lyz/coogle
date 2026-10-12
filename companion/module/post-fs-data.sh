@@ -4,7 +4,7 @@ MODDIR=${0%/*}
 load_features "$MODDIR/features.conf"
 if ! apply_features; then
     touch "$MODDIR/component-error" "$MODDIR/skip_mount"
-    google=0; hey=0; translate=0
+    hey=0
     save_features "$MODDIR/applied-features.conf"
     exit 1
 fi

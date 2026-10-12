@@ -34,7 +34,6 @@ import androidx.compose.material.icons.rounded.Mic
 import androidx.compose.material.icons.rounded.RecordVoiceOver
 import androidx.compose.material.icons.rounded.Search
 import androidx.compose.material.icons.rounded.SettingsSuggest
-import androidx.compose.material.icons.rounded.Translate
 import androidx.compose.material.icons.rounded.TouchApp
 import androidx.compose.material.icons.rounded.CenterFocusStrong
 import androidx.compose.material.icons.rounded.VisibilityOff
@@ -137,14 +136,12 @@ fun CoogleScreen(
             }
             val available = state.connected
             Group("数字助理") {
-                SettingRow(0, 4, Icons.Rounded.RecordVoiceOver, "默认数字助理", state.assistant, onClick = onAssistant)
-                ToggleRow(1, 4, Icons.Rounded.Mic, "开启 Hey Google", state.companion.summary,
+                SettingRow(0, 3, Icons.Rounded.RecordVoiceOver, "默认数字助理", state.assistant, onClick = onAssistant)
+                ToggleRow(1, 3, Icons.Rounded.Mic, "开启 Hey Google", state.companion.summary + "；支持组件更改需重启",
                     checked = state.features[FeaturePolicy.HEY_GOOGLE] == true, enabled = available && !state.busy,
                     onChange = { onSetting(FeaturePolicy.HEY_GOOGLE, it) })
-                ToggleRow(2, 4, Icons.Rounded.CenterFocusStrong, "Google智能镜头", "补全Google智能镜头功能",
+                ToggleRow(2, 3, Icons.Rounded.CenterFocusStrong, "Google智能镜头", "补全Google智能镜头功能",
                     state.features[FeaturePolicy.LENS] == true, available, { onSetting(FeaturePolicy.LENS, it) })
-                ToggleRow(3, 4, Icons.Rounded.Translate, "实时翻译", "滚动时持续翻译，需更新附属模块并重启",
-                    state.features[FeaturePolicy.LIVE_TRANSLATE] == true, available, { onSetting(FeaturePolicy.LIVE_TRANSLATE, it) })
             }
             Group("系统设置") {
                 ToggleRow(0, 6, Icons.Rounded.TouchApp, "系统导航方式", "补全设置中的导航方式",
@@ -228,16 +225,14 @@ private fun CoogleDialog(state: CoogleState, onConfirm: () -> Unit, onDismiss: (
         DialogKind.STATUS -> "模块状态"
         DialogKind.INSTALL -> "安装附属模块"
         DialogKind.DISABLED -> "附属模块已禁用"
-        DialogKind.SUPPORT_OFF -> "Hey Google 支持已关闭"
         DialogKind.INSTALLED -> "安装完成"
         DialogKind.HIDE_ICON -> "隐藏桌面图标？"
         else -> "操作未完成"
     }
     val message = when (state.dialog) {
         DialogKind.STATUS -> "在 LSPosed 中启用 Coogle 并勾选推荐作用域。更改设置后，重启对应作用域生效。\n\n系统兼容性仅检查 ColorOS 17。"
-        DialogKind.INSTALL -> "Hey Google 需要 Coogle 附属模块。安装会请求 Root 授权。\n\n首次安装附属模块后，需要重启手机完成挂载，再在 Google 设置中完成 Voice Match。"
+        DialogKind.INSTALL -> "Hey Google 需要安装或更新新版附属模块。安装会请求 Root 授权。\n\n请设置 Hey Google 后重启，实时翻译会在附属配置生效后自动启用。"
         DialogKind.DISABLED -> "请在 KernelSU 中启用 Coogle 附属模块，然后重新开启 Hey Google。"
-        DialogKind.SUPPORT_OFF -> "请在 KernelSU 中打开 Coogle 附属模块的 Action，启用 Hey Google 支持并重启，然后重新开启此功能。"
         DialogKind.INSTALLED -> "Coogle 附属模块已安装，Hey Google 开关已开启。\n\n请重启手机完成附属模块挂载，再在 Google 设置中完成 Voice Match。"
         DialogKind.HIDE_ICON -> "隐藏后，仍可从 LSPosed 的 Coogle 模块设置入口打开应用。"
         else -> state.dialogText

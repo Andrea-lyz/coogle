@@ -40,8 +40,30 @@ public final class DynamicGoogleHookTest {
         enabled[0] = false;
         Object original = new Object();
         check(invoke(hooks.callbacks.get(create), List.of(), original) == original, "Disabled Lens changed original result");
-        check(invoke(hooks.callbacks.get(feature), List.of("com.google.android.feature.CONTEXTUAL_SEARCH_LIVE_TRANSLATE",0), original) == original,
-                "Disabled translation changed original feature result");
+        check(invoke(hooks.callbacks.get(feature), List.of("com.google.android.feature.CONTEXTUAL_SEARCH_LIVE_TRANSLATE",0), original).equals(true),
+                "Automatic translation depended on a removed preference switch");
+        for (int invalid = 0; invalid < 3; invalid++) {
+            ApplicationPackageManager manager = new ApplicationPackageManager();
+            if (invalid == 0) manager.mContext.manager.installed = false;
+            if (invalid == 1) manager.mContext.manager.flags = 0;
+            if (invalid == 2) manager.mContext.resources.provider = "other.provider";
+            HookInstaller inactive = new HookInstaller();
+            LiveTranslateHooks.install(inactive, DynamicGoogleHookTest.class.getClassLoader());
+            check(invoke(inactive.callbacks.get(feature), List.of(LiveTranslateHooks.SYSTEM_FEATURE,0), original, manager) == original,
+                    "Missing, non-system or inactive native support enabled translation");
+        }
+        HookInstaller delayed = new HookInstaller();
+        LiveTranslateHooks.install(delayed, DynamicGoogleHookTest.class.getClassLoader());
+        ApplicationPackageManager manager = new ApplicationPackageManager();
+        manager.mContext = null;
+        check(invoke(delayed.callbacks.get(feature), List.of(LiveTranslateHooks.SYSTEM_FEATURE,0), original, manager) == original,
+                "Missing context changed native behavior");
+        manager.mContext = new android.content.Context();
+        check(invoke(delayed.callbacks.get(feature), List.of(LiveTranslateHooks.SYSTEM_FEATURE,0), original, manager).equals(true),
+                "Missing context was cached as permanently unsupported");
+        int lookups = manager.mContext.manager.reads;
+        invoke(delayed.callbacks.get(feature), List.of(LiveTranslateHooks.SYSTEM_FEATURE,0), original, manager);
+        check(manager.mContext.manager.reads == lookups, "Native support was repeatedly queried");
         HookInstaller failing = new HookInstaller();
         LensHooks.install(failing, List.of(create, visible));
         enabled[0] = true;
@@ -49,12 +71,15 @@ public final class DynamicGoogleHookTest {
         LiveTranslateHooks.install(failing, DynamicGoogleHookTest.class.getClassLoader());
         check(failing.installed == 2 && failing.callbacks.containsKey(create) && !failing.callbacks.containsKey(capable),
                 "Failed native feature exposure retained partial hooks or removed Lens hooks");
-        System.out.println("PASS: native live-translate feature, preserved eligibility, version semantics, disabled bypass and rollback");
+        System.out.println("PASS: automatic native translation support, preserved eligibility, version semantics and rollback");
     }
     static Object invoke(XposedInterface.Hooker hook, List<Object> args, Object original) throws Throwable {
+        return invoke(hook, args, original, new ApplicationPackageManager());
+    }
+    static Object invoke(XposedInterface.Hooker hook, List<Object> args, Object original, ApplicationPackageManager manager) throws Throwable {
         XposedInterface.Chain chain = (XposedInterface.Chain)Proxy.newProxyInstance(XposedInterface.Chain.class.getClassLoader(),
                 new Class<?>[]{XposedInterface.Chain.class}, (p,m,a) -> switch(m.getName()) {
-                    case "getArg" -> args.get((Integer)a[0]); case "getArgs" -> args; case "proceed" -> original;
+                    case "getArg" -> args.get((Integer)a[0]); case "getArgs" -> args; case "getThisObject" -> manager; case "proceed" -> original;
                     default -> throw new AssertionError(m.getName());
                 });
         return hook.intercept(chain);

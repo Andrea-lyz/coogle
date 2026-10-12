@@ -1,1 +1,1 @@
-package android.app; public class ApplicationPackageManager { public boolean hasSystemFeature(String name){return hasSystemFeature(name,0);} public boolean hasSystemFeature(String name,int version){return false;} }
+package android.app; public class ApplicationPackageManager { public android.content.Context mContext = new android.content.Context(); public boolean hasSystemFeature(String name){return hasSystemFeature(name,0);} public boolean hasSystemFeature(String name,int version){return false;} }

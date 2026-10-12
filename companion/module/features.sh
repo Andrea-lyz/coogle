@@ -1,18 +1,17 @@
 #!/system/bin/sh
+# Hey Google is mirrored from the APK switch; Google/translation support stays on.
 # Configuration is parsed as data, never sourced as root shell code.
 load_features() {
-    google=1; hey=1; translate=1
+    hey=0
     [ -f "$1" ] || return 0
     while IFS= read -r line; do
         case "$line" in
-            google=0) google=0 ;; google=1) google=1 ;;
             hey=0) hey=0 ;; hey=1) hey=1 ;;
-            translate=0) translate=0 ;; translate=1) translate=1 ;;
         esac
     done < "$1"
 }
 write_features() {
-    printf 'google=%s\nhey=%s\ntranslate=%s\n' "$google" "$hey" "$translate"
+    printf 'hey=%s\n' "$hey"
 }
 save_features() {
     write_features > "$1.tmp" && chmod 0600 "$1.tmp" && mv -f "$1.tmp" "$1"
@@ -32,7 +31,7 @@ select_payload() {
 }
 apply_features() {
     changed=0
-    select_payload "$google" system/priv-app/GoogleQuickSearchBox || return 1
+    select_payload 1 system/priv-app/GoogleQuickSearchBox || return 1
     for relative in system/product/priv-app/CoogleEnrollmentXGoogle \
         system/product/priv-app/CoogleEnrollmentYGoogle \
         system/framework/com.android.hotwordenrollment.common.util.jar \
@@ -40,7 +39,7 @@ apply_features() {
         system/odm/etc/resourcemanager.xml; do
         select_payload "$hey" "$relative" || return 1
     done
-    select_payload "$translate" system/product/overlay/CoogleContextualSearch || return 1
+    select_payload 1 system/product/overlay/CoogleContextualSearch || return 1
     # Remove empty mount directories; never remove other payloads or symlinks.
     if [ "$changed" = 1 ]; then
         find "$MODDIR/system" -depth -type d -empty -exec rmdir '{}' \; 2>/dev/null

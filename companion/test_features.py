@@ -11,7 +11,7 @@ def unix(path):
     return '/' + text[0].lower() + text[2:]
 
 class FeaturesTest(unittest.TestCase):
-    def test_independent_choices_restore_payload_without_deleting_google(self):
+    def test_hey_toggle_keeps_google_and_translation_payloads(self):
         with tempfile.TemporaryDirectory() as directory:
             work = Path(directory)
             paths = ['system/priv-app/GoogleQuickSearchBox/base.apk',
@@ -28,16 +28,17 @@ class FeaturesTest(unittest.TestCase):
             run = lambda code: subprocess.run([BASH, '-c',
                 f'MODDIR="{unix(work)}"; . "{unix(ROOT / "module/features.sh")}"; {code}'],
                 check=True, capture_output=True, text=True, encoding='utf-8')
-            run('google=1; hey=0; translate=1; apply_features')
+            run('load_features /dev/null; apply_features')
             self.assertTrue((work/paths[0]).is_file())
             self.assertTrue((work/paths[-1]).is_file())
             for name in paths[1:-1]:
                 self.assertFalse((work/name).exists())
                 self.assertEqual((work/'optional'/name).read_bytes(), name.encode())
-            run('google=0; hey=0; translate=0; apply_features; apply_features')
-            self.assertFalse((work/paths[0]).exists())
-            self.assertFalse((work/paths[-1]).exists())
-            run('google=1; hey=1; translate=1; apply_features; apply_features')
+            (work/'features.conf').write_bytes(b'google=0\ntranslate=0\nhey=0\n')
+            run('load_features "$MODDIR/features.conf"; apply_features; apply_features')
+            self.assertTrue((work/paths[0]).exists())
+            self.assertTrue((work/paths[-1]).exists())
+            run('load_features /dev/null; hey=1; apply_features; apply_features')
             for name in paths:
                 self.assertEqual((work/name).read_bytes(), name.encode())
 
@@ -50,7 +51,7 @@ class FeaturesTest(unittest.TestCase):
                 f'cd "{unix(work)}"; . "{unix(ROOT / "module/features.sh")}"; '
                 'load_features features.conf; save_features saved.conf; cat saved.conf'],
                 check=True, capture_output=True, text=True, encoding='utf-8')
-            self.assertEqual(result.stdout, 'google=0\nhey=0\ntranslate=1\n')
+            self.assertEqual(result.stdout, 'hey=0\n')
             self.assertFalse((work/'injected').exists())
 
     def test_disabled_hotword_never_initializes(self):
@@ -65,28 +66,6 @@ class FeaturesTest(unittest.TestCase):
             result = subprocess.run([BASH, str(work/'run.sh')], capture_output=True, text=True)
             self.assertEqual(result.returncode, 0, result.stderr)
 
-    def test_action_saves_or_cancels_and_cleans_up_listener(self):
-        for save in (True, False):
-            with self.subTest(save=save), tempfile.TemporaryDirectory() as directory:
-                work = Path(directory)
-                (work/'features.sh').write_bytes((ROOT/'module/features.sh').read_bytes().replace(b'\r\n', b'\n'))
-                original = b'google=1\nhey=1\ntranslate=1\n'
-                (work/'features.conf').write_bytes(original)
-                script = (ROOT/'module/action.sh').read_text(encoding='utf-8').replace('MODDIR=${0%/*}', f'MODDIR="{unix(work)}"')
-                # Feed volume presses to the production FIFO reader, then keep the
-                # producer alive so exiting must actually terminate the listener.
-                choices = ['KEY_VOLUMEUP', 'KEY_VOLUMEDOWN', 'KEY_VOLUMEUP',
-                           'KEY_VOLUMEUP' if save else 'KEY_VOLUMEDOWN']
-                events = '\n'.join(f'EV_KEY {key} DOWN' for key in choices)
-                producer = "getevent() { printf '%s\\n' '" + events + "'; exec sleep 20; };\n"
-                (work/'action.sh').write_bytes((producer+script).encode())
-                result = subprocess.run([BASH, str(work/'action.sh'), '--menu'],
-                                        capture_output=True, text=True, encoding='utf-8', timeout=5)
-                self.assertEqual(result.returncode, 0, result.stderr)
-                expected = b'google=1\nhey=0\ntranslate=1\n' if save else original
-                self.assertEqual((work/'features.conf').read_bytes(), expected)
-                self.assertFalse(list(work.glob('.action.*')))
-
     def test_disabled_status_skips_android_queries(self):
         with tempfile.TemporaryDirectory() as directory:
             work = Path(directory)
@@ -94,10 +73,10 @@ class FeaturesTest(unittest.TestCase):
             (work/'applied-features.conf').write_bytes(b'google=0\nhey=0\ntranslate=0\n')
             (work/'module.prop').write_bytes(b'id=coogle_companion\n')
             script = (ROOT/'integration/status.sh').read_text(encoding='utf-8').replace('MODDIR=${0%/*}', f'MODDIR="{unix(work)}"')
-            mocks = f'query() {{ touch "{unix(work)}/queried"; }}; dumpsys() {{ query; }}; pm() {{ query; }}; cmd() {{ query; }};\n'
+            mocks = f'query() {{ touch "{unix(work)}/queried"; }}; dumpsys() {{ case "$*" in *voiceinteraction*) query ;; esac; }}; pm() {{ query; }}; cmd() {{ echo com.google.android.googlequicksearchbox; }};\n'
             (work/'status.sh').write_bytes((mocks+script).encode())
             result = subprocess.run([BASH, str(work/'status.sh')], check=True, capture_output=True, text=True, encoding='utf-8')
-            self.assertIn('Google固化关闭', result.stdout)
+            self.assertIn('实时翻译配置已生效', result.stdout)
             self.assertIn('Hey Google支持关闭', result.stdout)
             self.assertFalse((work/'queried').exists())
 
@@ -120,7 +99,7 @@ class FeaturesTest(unittest.TestCase):
             parked.unlink(); parked.parent.rmdir()
             self.assertEqual(run().returncode, 0)
             self.assertFalse((work/'skip_mount').exists())
-            self.assertEqual(parked.read_bytes(), b'preserved')
+            self.assertEqual(active.read_bytes(), b'preserved')
 
 if __name__ == '__main__':
     unittest.main()

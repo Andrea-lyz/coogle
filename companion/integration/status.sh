@@ -5,12 +5,9 @@ load_features "$MODDIR/applied-features.conf"
 google_status='⚠️Google未固化'
 enrollment='⚠️注册组件未就绪'
 dsp='⚠️DSP未运行'
-if [ "$google" = 0 ]; then google_status='⏸️Google固化关闭'
-else
 package=$(dumpsys -t 10 package com.google.android.googlequicksearchbox 2>/dev/null | grep -m 1 'flags=\[.*SYSTEM')
 if [ -n "$package" ]; then
     google_status='✅Google系统应用'
-fi
 fi
 if [ "$hey" = 0 ]; then
     enrollment='⏸️Hey Google支持关闭'; dsp=''
@@ -35,13 +32,10 @@ case "$audio" in
     label-failed) dsp="$dsp；音频标签设置失败" ;;
 esac
 fi
-translation='⏸️实时翻译支持关闭'
-if [ "$translate" = 1 ]; then
-    provider=$(cmd overlay lookup android android:string/config_defaultContextualSearchPackageName 2>/dev/null)
-    if [ "$provider" = com.google.android.googlequicksearchbox ]; then
-        translation='✅实时翻译配置已生效'
-    else translation='⚠️实时翻译配置未生效'; fi
-fi
+provider=$(cmd overlay lookup android android:string/config_defaultContextualSearchPackageName 2>/dev/null)
+if [ "$provider" = com.google.android.googlequicksearchbox ]; then
+    translation='✅实时翻译配置已生效'
+else translation='⚠️实时翻译配置未生效'; fi
 if [ -n "$dsp" ]; then enrollment="$enrollment | $dsp"; fi
 description="[$google_status | $enrollment | $translation]"
 if [ -f "$MODDIR/component-error" ]; then

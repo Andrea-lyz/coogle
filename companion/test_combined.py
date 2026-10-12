@@ -50,13 +50,13 @@ class CombinedTest(unittest.TestCase):
             for old in (b'coogle_hotword_enrollment', b'coogle_hotword_hal_probe', b'google_system_app'):
                 self.assertNotIn(old,installer)
             self.assertNotIn(b'rm -rf',installer)
-            for removed in ('rescue.sh','diagnose.sh','payload.sha256'):
+            for removed in ('rescue.sh','diagnose.sh','payload.sha256','action.sh'):
                 self.assertNotIn(removed,z.namelist())
             self.assertIn(b'cat > /dev/null',z.read('boot-completed.sh'))
             self.assertIn(b'Existing model 101 retained',z.read('setup.sh'))
             self.assertIn(b'am compat reset',z.read('uninstall.sh'))
-            self.assertIn(b'timeout 90', z.read('action.sh'))
-            self.assertIn(b'trap cleanup EXIT', z.read('action.sh'))
+            self.assertNotIn(b'getevent', installer)
+            self.assertIn(b'controlVersion=1', z.read('module.prop'))
             self.assertIn(b'apply_features', z.read('post-fs-data.sh'))
             self.assertIn(b'[ "$hey" = 1 ] || exit 0', z.read('setup.sh'))
 
