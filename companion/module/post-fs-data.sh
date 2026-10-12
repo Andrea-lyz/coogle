@@ -1,8 +1,9 @@
 #!/system/bin/sh
 MODDIR=${0%/*}
 . "$MODDIR/features.sh"
+. "$MODDIR/native-translate.sh"
 load_features "$MODDIR/features.conf"
-if ! apply_features; then
+if ! apply_features || ! prepare_native_translation; then
     touch "$MODDIR/component-error" "$MODDIR/skip_mount"
     hey=0
     save_features "$MODDIR/applied-features.conf"

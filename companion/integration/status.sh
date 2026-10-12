@@ -36,8 +36,12 @@ else
     esac
     fi
     provider=$(cmd overlay lookup android android:string/config_defaultContextualSearchPackageName 2>/dev/null)
-    if [ "$provider" = com.google.android.googlequicksearchbox ]; then
+    capability=$(pm has-feature com.google.android.feature.CONTEXTUAL_SEARCH_LIVE_TRANSLATE 0 2>/dev/null)
+    if [ "$provider" = com.google.android.googlequicksearchbox ] && [ "$capability" = true ] &&
+        [ ! -f "$MODDIR/translation-error" ]; then
         translation='✅实时翻译配置已生效'
+    elif [ -f "$MODDIR/translation-error" ]; then
+        translation='⚠️实时翻译覆盖配置不兼容'
     else translation='⚠️实时翻译配置未生效'; fi
     if [ -n "$dsp" ]; then enrollment="$enrollment | $dsp"; fi
     description="[$google_status | $enrollment | $translation]"

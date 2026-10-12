@@ -73,7 +73,7 @@ class FeaturesTest(unittest.TestCase):
             (work/'applied-features.conf').write_bytes(b'google=0\nhey=0\ntranslate=0\n')
             (work/'module.prop').write_bytes(b'id=coogle_companion\n')
             script = (ROOT/'integration/status.sh').read_text(encoding='utf-8').replace('MODDIR=${0%/*}', f'MODDIR="{unix(work)}"')
-            mocks = f'query() {{ touch "{unix(work)}/queried"; }}; dumpsys() {{ case "$*" in *voiceinteraction*) query ;; esac; }}; pm() {{ query; }}; cmd() {{ echo com.google.android.googlequicksearchbox; }};\n'
+            mocks = f'query() {{ touch "{unix(work)}/queried"; }}; dumpsys() {{ case "$*" in *voiceinteraction*) query ;; esac; }}; pm() {{ case "$1" in has-feature) echo true;; *) query;; esac; }}; cmd() {{ echo com.google.android.googlequicksearchbox; }};\n'
             (work/'status.sh').write_bytes((mocks+script).encode())
             result = subprocess.run([BASH, str(work/'status.sh')], check=True, capture_output=True, text=True, encoding='utf-8')
             self.assertIn('实时翻译配置已生效', result.stdout)
@@ -84,8 +84,16 @@ class FeaturesTest(unittest.TestCase):
         with tempfile.TemporaryDirectory() as directory:
             work = Path(directory)
             (work/'features.sh').write_bytes((ROOT/'module/features.sh').read_bytes().replace(b'\r\n', b'\n'))
+            native = (ROOT/'module/native-translate.sh').read_text(encoding='utf-8').replace('/system/bin/idmap2', 'idmap2')
+            (work/'native-translate.sh').write_bytes(native.encode())
             script = (ROOT/'module/post-fs-data.sh').read_text(encoding='utf-8').replace('MODDIR=${0%/*}', f'MODDIR="{unix(work)}"')
+            script = 'idmap2() { [ "$1" != lookup ] || echo \'value="com.google.android.googlequicksearchbox\'; };\n'+script
             (work/'post-fs-data.sh').write_bytes(script.encode())
+            for name in ('system/etc/permissions/coogle-live-translate.xml',
+                         'system/product/overlay/CoogleContextualSearch/CoogleContextualSearch.apk'):
+                path = work/name
+                path.parent.mkdir(parents=True, exist_ok=True)
+                path.write_bytes(b'fixture')
             (work/'features.conf').write_bytes(b'google=0\nhey=0\ntranslate=0\n')
             active = work/'system/priv-app/GoogleQuickSearchBox/base.apk'
             parked = work/'optional/system/priv-app/GoogleQuickSearchBox/base.apk'

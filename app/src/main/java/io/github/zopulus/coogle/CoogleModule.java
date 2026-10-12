@@ -39,7 +39,7 @@ public final class CoogleModule extends XposedModule {
             MigrationEntry.attach(this);
             MigrationEntry.hookPackage(packageName, param.getClassLoader());
             if ("com.google.android.googlequicksearchbox".equals(packageName))
-                GoogleAppHooks.install(hooks, param.getClassLoader(), param.getApplicationInfo().sourceDir,
+                LensHooks.installForApp(hooks, param.getClassLoader(), param.getApplicationInfo().sourceDir,
                         param.getApplicationInfo().dataDir);
             if ("com.android.settings".equals(packageName) && FeatureConfig.enabled(FeaturePolicy.NAVIGATION)) SettingsHooks.installSettingsHiddenSupport(hooks, param.getClassLoader());
         }
