@@ -77,7 +77,7 @@ class FeaturesTest(unittest.TestCase):
             (work/'status.sh').write_bytes((mocks+script).encode())
             result = subprocess.run([BASH, str(work/'status.sh')], check=True, capture_output=True, text=True, encoding='utf-8')
             self.assertIn('实时翻译配置已生效', result.stdout)
-            self.assertIn('Hey Google支持关闭', result.stdout)
+            self.assertIn('Hey Google未修补', result.stdout)
             self.assertFalse((work/'queried').exists())
 
     def test_payload_conflict_pauses_mount_and_can_recover(self):

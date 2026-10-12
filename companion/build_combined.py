@@ -24,15 +24,8 @@ def payload():
     for name in ('patch-audio.awk', 'prepare-audio.sh', 'status.sh', 'hotword-status.awk'):
         path = ROOT/'integration'/name
         files[name] = path.read_bytes().replace(b'\r\n', b'\n')
-    for name in ('setup.sh', 'uninstall.sh', 'features.sh', 'post-fs-data.sh'):
+    for name in ('boot-completed.sh', 'setup.sh', 'uninstall.sh', 'features.sh', 'post-fs-data.sh'):
         files[name] = (ROOT/'module'/name).read_bytes().replace(b'\r\n', b'\n')
-    files['boot-completed.sh'] = b'''#!/system/bin/sh
-MODDIR=${0%/*}
-sleep 30
-# Binder shell commands require pipe FDs rather than module-directory FDs.
-/system/bin/sh "$MODDIR/setup.sh" 2>&1 | cat > /dev/null
-/system/bin/sh "$MODDIR/status.sh" > /dev/null 2>&1
-'''
     installer = '#!/system/bin/sh\n' + systemizer_install + '''
 set_perm_recursive "$MODPATH/system" 0 0 0755 0644
 for script in boot-completed.sh setup.sh uninstall.sh prepare-audio.sh status.sh features.sh post-fs-data.sh; do
