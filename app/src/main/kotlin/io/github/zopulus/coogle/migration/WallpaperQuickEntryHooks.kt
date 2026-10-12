@@ -2,6 +2,7 @@ package io.github.zopulus.coogle.migration
 
 import android.content.Context
 import android.content.res.Resources
+import android.provider.Settings
 import dalvik.system.BaseDexClassLoader
 import io.github.zopulus.coogle.migration.compat.ModernHookRegistry
 import io.github.zopulus.coogle.migration.compat.ModernMethodHook
@@ -44,12 +45,8 @@ internal object WallpaperQuickEntryHooks {
             val pluginContextField = ModernReflect.findField(manager, "b")
             val callbackField = ModernReflect.findField(manager, "c")
             val callbackKind = ModernReflect.findField(callbackType, "a")
-            val walletState = ModernReflect.findField(manager, "g")
-            val homeState = ModernReflect.findField(manager, "f")
-            val stateEnabled = ModernReflect.findField(walletState.type, "f")
             val isSystemApp = ModernReflect.findMethodExact(ModernReflect.findClass("i5.d", loader),
                 "i", arrayOf(Context::class.java, String::class.java))
-            require(stateEnabled.type == Boolean::class.javaPrimitiveType)
             val invoke = ModernReflect.findMethodExact(callbackType, "invoke", arrayOf(Any::class.java))
             val titleIds = Collections.synchronizedMap(WeakHashMap<Resources, Map<String, Int>>())
             val owners = Collections.synchronizedMap(WeakHashMap<Any, WeakReference<Any>>())
@@ -95,11 +92,14 @@ internal object WallpaperQuickEntryHooks {
                         add("assistant", if (geminiIsSystemApp) "affordance_digital_assistant" else "affordance_assistant",
                             packageName = "com.google.android.apps.bard")
                     }
+                    // Use SystemUI's current status, not the plugin observer's initialization snapshot.
                     if ("wallet" !in present)
-                        add("wallet", "affordance_pay", walletState.get(owner)?.let { stateEnabled.getBoolean(it) } ?: false)
+                        add("wallet", "affordance_pay", Settings.System.getInt(pluginContext.contentResolver,
+                            "oplus_wallet_enable_state", 0) == 1)
                     add("qr_code_scanner", "affordance_scanner")
                     if ("home" !in present)
-                        add("home", "affordance_homecontrol", homeState.get(owner)?.let { stateEnabled.getBoolean(it) } ?: false)
+                        add("home", "affordance_homecontrol", Settings.System.getInt(pluginContext.contentResolver,
+                            "oplus_home_controller_enable_state", 0) == 1)
                     param.args[0] = completed
                 }
             })

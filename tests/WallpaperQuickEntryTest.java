@@ -36,6 +36,19 @@ public class WallpaperQuickEntryTest {
             List.of("flashlight","assistant","wallet","qr_code_scanner","home","add")),"Native row order changed");
         check(original.size()==2,"Original list mutated");
         check(!completed.get(2).enabled && !completed.get(4).enabled,"Native provider eligibility ignored");
+        context.getContentResolver().values.put("oplus_wallet_enable_state",1);
+        context.getContentResolver().values.put("oplus_home_controller_enable_state",1);
+        var readyParam=new MethodHookParam(invoke,callback,new Object[]{original});
+        listHook.beforeHookedMethod(readyParam);
+        var ready=(List<?>)readyParam.getArgs()[0];
+        check(((d1.a)ready.get(2)).enabled && ((d1.a)ready.get(4)).enabled,
+            "Ready system providers disabled by stale plugin state");
+        context.getContentResolver().values.put("oplus_wallet_enable_state",0);
+        var changedParam=new MethodHookParam(invoke,callback,new Object[]{original});
+        listHook.beforeHookedMethod(changedParam);
+        var changed=(List<?>)changedParam.getArgs()[0];
+        check(!((d1.a)changed.get(2)).enabled && ((d1.a)changed.get(4)).enabled,
+            "Provider state update was cached or mixed between entries");
         check(completed.get(1).icon.equals("affordance_digital_assistant_icon"),"Native Gemini icon lost");
         int lookups=context.getResources().lookups, packages=i5.d.calls;
         var completeParam=new MethodHookParam(invoke,callback,new Object[]{completed});
