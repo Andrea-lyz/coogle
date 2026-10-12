@@ -36,7 +36,7 @@ final class LensBinding {
                 }
             }
         }
-        return create == null || talk == null ? null : new Method[]{create, talk};
+        return create == null || talk == null || create.equals(talk) ? null : new Method[]{create, talk};
     }
 
     static boolean isPredicate(Method method) {
