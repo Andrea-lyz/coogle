@@ -10,7 +10,8 @@ class CombinedTest(unittest.TestCase):
             marker='system/priv-app/GoogleQuickSearchBox/.replace'
             self.assertEqual(source.read(marker),z.read(marker))
             self.assertFalse(any(n.startswith('system/priv-app/GoogleQuickSearchBox/') and n.endswith('.apk') for n in z.namelist()))
-            self.assertIn(source.read('customize.sh').replace(b'\r\n',b'\n'),z.read('customize.sh'))
+            self.assertIn(b'. "$MODPATH/copy-google.sh"', z.read('customize.sh'))
+            self.assertEqual((ROOT/'module/copy-google.sh').read_bytes().replace(b'\r\n', b'\n'), z.read('copy-google.sh'))
 
     def test_complete_payload_integrity_and_no_unsafe_overlays(self):
         with zipfile.ZipFile(OUT) as z:

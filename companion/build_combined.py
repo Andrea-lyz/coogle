@@ -20,15 +20,15 @@ def payload():
                 assert '..' not in Path(info.filename).parts
                 assert info.filename not in files
                 files[info.filename] = systemizer.read(info)
-        systemizer_install = systemizer.read('customize.sh').decode('utf-8').replace('\r\n','\n')
     for name in ('patch-audio.awk', 'prepare-audio.sh', 'status.sh', 'hotword-status.awk'):
         path = ROOT/'integration'/name
         files[name] = path.read_bytes().replace(b'\r\n', b'\n')
-    for name in ('boot-completed.sh', 'setup.sh', 'uninstall.sh', 'features.sh', 'post-fs-data.sh', 'native-translate.sh'):
+    for name in ('boot-completed.sh', 'setup.sh', 'uninstall.sh', 'features.sh', 'post-fs-data.sh', 'native-translate.sh', 'copy-google.sh'):
         files[name] = (ROOT/'module'/name).read_bytes().replace(b'\r\n', b'\n')
-    installer = '#!/system/bin/sh\n' + systemizer_install + '''
+    installer = '''#!/system/bin/sh
+. "$MODPATH/copy-google.sh"
 set_perm_recursive "$MODPATH/system" 0 0 0755 0644
-for script in boot-completed.sh setup.sh uninstall.sh prepare-audio.sh status.sh features.sh post-fs-data.sh native-translate.sh; do
+for script in boot-completed.sh setup.sh uninstall.sh prepare-audio.sh status.sh features.sh post-fs-data.sh native-translate.sh copy-google.sh; do
     set_perm "$MODPATH/$script" 0 0 0755
 done
 /system/bin/sh "$MODPATH/prepare-audio.sh"
