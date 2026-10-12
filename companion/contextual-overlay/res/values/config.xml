@@ -1,0 +1,4 @@
+<resources>
+    <!-- Native MediaProjection recording-overlay eligibility uses this provider. -->
+    <string name="config_defaultContextualSearchPackageName" translatable="false">com.google.android.googlequicksearchbox</string>
+</resources>

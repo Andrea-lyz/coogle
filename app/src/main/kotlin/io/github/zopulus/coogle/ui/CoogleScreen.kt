@@ -143,7 +143,7 @@ fun CoogleScreen(
                     onChange = { onSetting(FeaturePolicy.HEY_GOOGLE, it) })
                 ToggleRow(2, 4, Icons.Rounded.CenterFocusStrong, "Google智能镜头", "补全Google智能镜头功能",
                     state.features[FeaturePolicy.LENS] == true, available, { onSetting(FeaturePolicy.LENS, it) })
-                ToggleRow(3, 4, Icons.Rounded.Translate, "实时翻译", "在圈定即搜中点击翻译，滚动时持续翻译",
+                ToggleRow(3, 4, Icons.Rounded.Translate, "实时翻译", "滚动时持续翻译，需更新附属模块并重启",
                     state.features[FeaturePolicy.LIVE_TRANSLATE] == true, available, { onSetting(FeaturePolicy.LIVE_TRANSLATE, it) })
             }
             Group("系统设置") {
