@@ -21,11 +21,12 @@ final class LiveTranslateHooks {
             Method simple = pm.getDeclaredMethod("hasSystemFeature", String.class);
             Method versioned = pm.getDeclaredMethod("hasSystemFeature", String.class, int.class);
             for (Method method : new Method[]{simple, versioned}) {
+                boolean versionedQuery = method.getParameterCount() == 2;
                 hooks.install(method, chain -> {
                     if (!SYSTEM_FEATURE.equals(chain.getArg(0)))
                         return chain.proceed();
                     // The original XML declares version 0. Keep newer version requests native.
-                    if (method.getParameterCount() == 2 && ((Integer)chain.getArg(1)) > 0) return chain.proceed();
+                    if (versionedQuery && ((Integer)chain.getArg(1)) > 0) return chain.proceed();
                     return support.ready(chain.getThisObject()) ? Boolean.TRUE : chain.proceed();
                 });
             }

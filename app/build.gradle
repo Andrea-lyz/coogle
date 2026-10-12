@@ -75,6 +75,7 @@ def hotwordTestClasses = layout.buildDirectory.dir('hotword-tests')
 def lifecycleTestClasses = layout.buildDirectory.dir('hook-lifecycle-tests')
 tasks.register('compileHookLifecycleTests', JavaCompile) {
     source files('../tests/CompanionControlTest.java')
+    source files('../tests/GmsFeatureQueryTest.java')
     dependsOn 'compileReleaseJavaWithJavac'
     source files('../tests/DexTargetCacheTest.java', '../tests/LensBindingTest.java', '../tests/lens-stubs/com/google/apps/tiktok/account/AccountId.java', '../tests/WalletPreviewBindingTest.java', '../tests/DynamicGoogleHookTest.java', '../tests/SignalModelHookLifecycleTest.java', '../tests/RoleReconciliationTest.java', '../tests/HookInstallRollbackTest.java', '../tests/HiddenCircleNoAssistantTest.java', '../tests/FeatureQueryTest.java', '../tests/ContextBindingCacheTest.java') +
         fileTree('../tests/lifecycle-stubs') { include '**/*.java' } +
@@ -92,7 +93,7 @@ tasks.register('compileHookLifecycleTests', JavaCompile) {
     targetCompatibility = '17'
     options.encoding = 'UTF-8'
 }
-['CompanionControlTest', 'DexTargetCacheTest', 'WalletPreviewBindingTest', 'DynamicGoogleHookTest', 'SignalModelHookLifecycleTest', 'RoleReconciliationTest', 'HookInstallRollbackTest', 'HiddenCircleNoAssistantTest', 'FeatureQueryTest', 'ContextBindingCacheTest'].each { testName ->
+['GmsFeatureQueryTest', 'CompanionControlTest', 'DexTargetCacheTest', 'WalletPreviewBindingTest', 'DynamicGoogleHookTest', 'SignalModelHookLifecycleTest', 'RoleReconciliationTest', 'HookInstallRollbackTest', 'HiddenCircleNoAssistantTest', 'FeatureQueryTest', 'ContextBindingCacheTest'].each { testName ->
     tasks.register("test${testName}", JavaExec) {
         dependsOn 'compileHookLifecycleTests'
         classpath = files(lifecycleTestClasses) + tasks.named('compileHookLifecycleTests').get().classpath
@@ -100,6 +101,7 @@ tasks.register('compileHookLifecycleTests', JavaCompile) {
     }
 }
 tasks.register('testHookLifecycle') {
+    dependsOn 'testGmsFeatureQueryTest'
     dependsOn 'testCompanionControlTest'
     dependsOn 'testDexTargetCacheTest', 'testWalletPreviewBindingTest', 'testDynamicGoogleHookTest', 'testSignalModelHookLifecycleTest', 'testRoleReconciliationTest', 'testHookInstallRollbackTest', 'testHiddenCircleNoAssistantTest', 'testFeatureQueryTest', 'testContextBindingCacheTest'
 }

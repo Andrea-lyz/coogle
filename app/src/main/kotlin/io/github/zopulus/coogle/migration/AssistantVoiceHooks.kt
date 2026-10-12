@@ -303,8 +303,7 @@ internal object AssistantVoiceHooks {
     }
     /** Refresh the active assistant binding. */
     fun refreshLiveAssistantBinding(context: Context, userId: Int) {
-        val handler = Handler(Looper.getMainLooper())
-        handler.post {
+        roleHandler.post {
             reconcileAssistantRoleState(context, userId)
             val stub = voiceInteractionManagerStub
             if (stub == null) {

@@ -79,12 +79,14 @@ internal object GmsRegionRestrictionHooker {
                         method.returnType == Boolean::class.javaObjectType)
             }
             .count { method ->
-                install(method) { param ->
-                    val featureName = param.args.firstOrNull() as? String ?: return@install
-                    if (featureName in blockedFeatures) {
-                        param.result = false
+                runCatching {
+                    ModernHookRegistry.installInterceptor(
+                        key = "gms-region:${method.declaringClass.name}:${method.toGenericString()}",
+                        executable = method,
+                    ) { chain ->
+                        if (chain.args.firstOrNull() in blockedFeatures) false else chain.proceed()
                     }
-                }
+                }.isSuccess
             }
     }
 
@@ -116,8 +118,8 @@ internal object GmsRegionRestrictionHooker {
 
     private fun filterFeatureArray(value: Any?): Any? {
         if (value !is kotlin.Array<*>) return value
+        if (value.none(::isBlockedFeature)) return value
         val retained = value.filterNot(::isBlockedFeature)
-        if (retained.size == value.size) return value
 
         val componentType = value.javaClass.componentType ?: return value
         val copy = ReflectArray.newInstance(componentType, retained.size)
