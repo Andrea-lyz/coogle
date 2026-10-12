@@ -19,6 +19,12 @@ public final class CompanionControlTest {
             Files.writeString(active.resolve("features.sh"), "fixture\n");
             Files.writeString(active.resolve("applied-features.conf"), "hey=0\n");
             check(run(false, active, pending).equals("READY"), "Matching state not ready");
+            var timestamp = java.nio.file.attribute.FileTime.fromMillis(1_000_000);
+            Files.setLastModifiedTime(active.resolve("features.conf"), timestamp);
+            check(run(false, active, pending).equals("READY"), "Unchanged sync changed status");
+            check(Files.getLastModifiedTime(active.resolve("features.conf")).equals(timestamp),
+                    "Unchanged Hey state rewrote configuration");
+            check(!Files.exists(active.resolve("features.conf.tmp")), "Unchanged sync left temporary file");
             check(run(true, active, pending).equals("PENDING"), "Changed state omitted reboot requirement");
             check(Files.readString(active.resolve("features.conf")).equals("hey=1\n"), "Hey switch not written");
             Files.createDirectories(pending);
@@ -29,6 +35,16 @@ public final class CompanionControlTest {
                     && Files.readString(pending.resolve("features.conf")).equals("hey=0\n"), "Staged update lost switch state");
             Files.createFile(pending.resolve("disable"));
             check(run(false, active, pending).equals("DISABLED"), "Disabled module accepted");
+            check(runCommand(CompanionInstaller.syncCommand(true), active, pending).equals("DISABLED"),
+                    "Automatic sync ignored disabled state");
+            check(Files.readString(pending.resolve("features.conf")).equals("hey=0\n"),
+                    "Automatic sync modified disabled module");
+            Files.delete(pending.resolve("disable"));
+            check(runCommand(CompanionInstaller.syncCommand(true), active, pending).equals("PENDING"),
+                    "Automatic sync omitted pending state");
+            check(Files.readString(active.resolve("features.conf")).equals("hey=1\n")
+                    && Files.readString(pending.resolve("features.conf")).equals("hey=1\n"),
+                    "Automatic sync did not mirror both installed directories");
             System.out.println("PASS: Hey Google mirror, staged updates, reboot requirement and legacy detection");
         } finally {
             try (var files = Files.walk(root)) {
@@ -37,7 +53,10 @@ public final class CompanionControlTest {
         }
     }
     private static String run(boolean enabled, Path active, Path pending) throws Exception {
-        String command = CompanionInstaller.controlCommand(enabled)
+        return runCommand(CompanionInstaller.controlCommand(enabled), active, pending);
+    }
+    private static String runCommand(String command, Path active, Path pending) throws Exception {
+        command = command
                 .replace("/data/adb/modules/coogle_companion", unix(active))
                 .replace("/data/adb/modules_update/coogle_companion", unix(pending));
         Process process = new ProcessBuilder("C:/Program Files/Git/bin/bash.exe", "-c", command).redirectErrorStream(true).start();

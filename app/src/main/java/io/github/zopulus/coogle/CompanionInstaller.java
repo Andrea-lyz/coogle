@@ -16,11 +16,19 @@ public final class CompanionInstaller {
     public static String setHeyGoogle(boolean enabled) throws Exception {
         return state(run(controlCommand(enabled),20));
     }
+    public static String syncHeyGoogle(boolean enabled) throws Exception {
+        return state(run(syncCommand(enabled),20));
+    }
+    static String syncCommand(boolean enabled) {
+        return "s=$(" + statusCommand() + "); case \"$s\" in READY|PENDING) "
+                + controlCommand(enabled) + ";; *) printf '%s\\n' \"$s\";; esac";
+    }
     static String controlCommand(boolean enabled) {
         return "for d in " + DIR + " /data/adb/modules_update/coogle_companion; do "
                 + "if [ -f \"$d/features.sh\" ] && grep -q '^controlVersion=1$' \"$d/module.prop\" 2>/dev/null; then "
+                + "if ! printf 'hey=" + (enabled ? "1" : "0") + "\\n' | cmp -s - \"$d/features.conf\"; then "
                 + "printf 'hey=" + (enabled ? "1" : "0") + "\\n' > \"$d/features.conf.tmp\" && "
-                + "chmod 0600 \"$d/features.conf.tmp\" && mv -f \"$d/features.conf.tmp\" \"$d/features.conf\" || exit 1; fi; done; "
+                + "chmod 0600 \"$d/features.conf.tmp\" && mv -f \"$d/features.conf.tmp\" \"$d/features.conf\" || exit 1; fi; fi; done; "
                 + statusCommand();
     }
     private static String statusCommand() {
