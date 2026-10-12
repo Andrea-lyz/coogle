@@ -137,14 +137,14 @@ fun CoogleScreen(
             val available = state.connected
             Group("数字助理") {
                 SettingRow(0, 3, Icons.Rounded.RecordVoiceOver, "默认数字助理", state.assistant, onClick = onAssistant)
-                ToggleRow(1, 3, Icons.Rounded.Mic, "开启 Hey Google", state.companion.summary + "；支持组件更改需重启",
+                ToggleRow(1, 3, Icons.Rounded.Mic, "开启 Hey Google", state.companion.summary,
                     checked = state.features[FeaturePolicy.HEY_GOOGLE] == true, enabled = available && !state.busy,
                     onChange = { onSetting(FeaturePolicy.HEY_GOOGLE, it) })
                 ToggleRow(2, 3, Icons.Rounded.CenterFocusStrong, "Google智能镜头", "补全Google智能镜头功能",
                     state.features[FeaturePolicy.LENS] == true, available, { onSetting(FeaturePolicy.LENS, it) })
             }
             Group("系统设置") {
-                ToggleRow(0, 6, Icons.Rounded.TouchApp, "系统导航方式", "补全设置中的导航方式",
+                ToggleRow(0, 6, Icons.Rounded.TouchApp, "系统导航方式", "补全设置中的导航方式。圈定即搜实时翻译功能需安装附属模块",
                     state.features[FeaturePolicy.NAVIGATION] == true, available, { onSetting(FeaturePolicy.NAVIGATION, it) })
                 ToggleRow(1, 6, Icons.Rounded.Search, "Google搜索框", "在桌面底部显示 Google 搜索框",
                     state.features[FeaturePolicy.SEARCH_BAR] == true, available, { onSetting(FeaturePolicy.SEARCH_BAR, it) })
