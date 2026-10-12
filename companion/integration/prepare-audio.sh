@@ -30,7 +30,8 @@ if [ "$result" != 0 ] || [ ! -s "$TARGET.tmp" ]; then
 fi
 cp "$SOURCE" "$MODDIR/audio-original.xml" || skip_audio io-failed
 mv "$TARGET.tmp" "$TARGET" || skip_audio io-failed
-chmod -R u=rwX,go=rX "$MODDIR/system" || skip_audio io-failed
+chmod 0755 "$MODDIR/system/odm" "$MODDIR/system/odm/etc" &&
+    chmod 0644 "$TARGET" || skip_audio io-failed
 for relative in odm odm/etc odm/etc/resourcemanager.xml; do
     "$BB" chcon --reference="/$relative" "$MODDIR/system/$relative" || {
         skip_audio label-failed
