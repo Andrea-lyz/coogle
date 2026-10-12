@@ -29,7 +29,8 @@ public final class CompanionInstaller {
     public static void install(Context context) throws Exception {
         Path zip=context.getCacheDir().toPath().resolve("coogle-companion.zip");
         try (InputStream source=context.getAssets().open("coogle-companion.zip")) { Files.copy(source,zip,java.nio.file.StandardCopyOption.REPLACE_EXISTING); }
-        run("/data/adb/ksu/bin/ksud module install '"+zip.toString().replace("'","'\\''")+"'",120);
+        // The in-app installer has no visible terminal for volume-key prompts.
+        run("COOGLE_NONINTERACTIVE=1 /data/adb/ksu/bin/ksud module install '"+zip.toString().replace("'","'\\''")+"'",120);
     }
     private static String run(String command,int timeout) throws Exception {
         Process process=new ProcessBuilder("su","-c",command).redirectErrorStream(true).start();

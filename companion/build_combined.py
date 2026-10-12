@@ -42,6 +42,11 @@ done
 . "$MODPATH/features.sh"
 load_features /data/adb/modules/coogle_companion/features.conf
 save_features "$MODPATH/features.conf" || abort "Cannot save component choices"
+if [ "$COOGLE_NONINTERACTIVE" != 1 ]; then
+    ui_print "请选择支持组件：音量＋开启，音量－关闭；最后保存或取消。"
+    /system/bin/sh "$MODPATH/action.sh" || ui_print "未保存新选择，保留原配置继续安装。"
+fi
+load_features "$MODPATH/features.conf"
 MODDIR=$MODPATH
 apply_features || abort "Cannot prepare selected components"
 ui_print "Google system app, enrollment and DSP support combined. Reboot required."
