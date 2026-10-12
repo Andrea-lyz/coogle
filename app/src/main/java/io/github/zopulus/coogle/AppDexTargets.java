@@ -24,6 +24,7 @@ import org.luckypray.dexkit.wrap.DexMethod;
  * API reference: https://luckypray.org/DexKit/en/guide/example.html
  */
 final class AppDexTargets implements AutoCloseable {
+    private static final int CACHE_SCHEMA = 2;
     private static volatile boolean nativeLoaded;
     private final String apkPath;
     private final ClassLoader loader;
@@ -38,7 +39,7 @@ final class AppDexTargets implements AutoCloseable {
         this.loader = loader;
         cache = dataDir == null ? null : new File(dataDir, "coogle_app_targets_v1.cache");
         File apk = new File(apkPath);
-        String key = "1:" + apkPath + ":" + apk.lastModified() + ":" + apk.length();
+        String key = CACHE_SCHEMA + ":" + apkPath + ":" + apk.lastModified() + ":" + apk.length();
         if (cache != null && cache.isFile() && cache.length() < 65536) {
             try (var input = Files.newInputStream(cache.toPath())) { stored.load(input); }
             catch (IOException | IllegalArgumentException invalid) { stored.clear(); }
@@ -99,7 +100,9 @@ final class AppDexTargets implements AutoCloseable {
 
     private List<Method> findLens() throws ReflectiveOperationException {
         var anchors = bridge.findMethod(FindMethod.create().matcher(MethodMatcher.create()
-                .returnType("java.lang.Object").paramCount(4).usingNumbers(27390)
+                // Google changes this diagnostic event number between app builds; the text,
+                // coroutine method shape, unique gate, and eligibility graph provide the anchors.
+                .returnType("java.lang.Object").paramCount(4)
                 .usingStrings(List.of("Checked: %s"))));
         if (anchors.size() != 1) return List.of();
         MethodData gate = null;
